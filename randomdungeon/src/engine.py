@@ -36,7 +36,7 @@ class Engine:
 
     def run(self):
         if not self.initialized:
-            raise RuntimeError("Engine is not initialiyzed")
+            raise RuntimeError("Engine not initialized")
 
         self.previous_time_in_secs = time.time()
         self.running = True
