@@ -4,6 +4,7 @@ import time
 from characters import *
 from globals import *
 from rooms import *
+from utils import *
 
 
 class Engine:
@@ -21,12 +22,17 @@ class Engine:
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Random Dungeon")
 
-        screen_center = pygame.Vector2(
-            self.screen.get_width() / 2.0, self.screen.get_height() / 2.0
-        )
+        tile_width = TILE_RADIUS * 2
+        tile_height = TILE_RADIUS * 2
+        screen_width_in_tiles = WINDOW_WIDTH // tile_width
+        screen_height_in_tiles = WINDOW_HEIGHT // tile_height
 
         self.hero = Hero()
-        self.hero.position = screen_center.copy()
+        self.hero.current_tile = pygame.Vector2(
+            screen_width_in_tiles // 2, screen_height_in_tiles // 2
+        )
+        self.hero.position = tile_position(self.hero.current_tile)
+
         self.room = Room()
 
         self.initialized = True
@@ -43,6 +49,7 @@ class Engine:
         self.running = True
         while self.running:
             self.__read_input()
+            self.__animate()
             self.__render()
             self.__update_time()
 
@@ -51,15 +58,21 @@ class Engine:
             if event.type == pygame.QUIT:  # closing window
                 self.running = False
 
+        hero_target_tile_delta = pygame.Vector2(0.0, 0.0)
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
-            self.hero.position.y -= HERO_SPEED * self.time_delta_in_secs
+            hero_target_tile_delta.y = -1.0
         if keys[pygame.K_s]:
-            self.hero.position.y += HERO_SPEED * self.time_delta_in_secs
+            hero_target_tile_delta.y = +1.0
         if keys[pygame.K_a]:
-            self.hero.position.x -= HERO_SPEED * self.time_delta_in_secs
+            hero_target_tile_delta.x = -1.0
         if keys[pygame.K_d]:
-            self.hero.position.x += HERO_SPEED * self.time_delta_in_secs
+            hero_target_tile_delta.x = +1.0
+        if not self.hero.is_walking:
+            self.hero.target_tile = self.hero.current_tile + hero_target_tile_delta
+
+    def __animate(self):
+        self.hero.animate(self.time_delta_in_secs)
 
     def __render(self):
         self.screen.fill(BACKGROUND_COLOR)
