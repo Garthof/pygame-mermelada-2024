@@ -1,0 +1,3 @@
+[packages]
+pygame = ">=2.5.2"
+
