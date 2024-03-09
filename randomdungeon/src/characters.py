@@ -1,19 +1,25 @@
 import pygame
-import pygame.freetype
 
-from dataclasses import dataclass
 from globals import *
-
-NULL_VECTOR = pygame.Vector2(0.0, 0.0)
-NULL_RECTANGLE = pygame.Rect(0.0, 0.0, 0.0, 0.0)
+from utils import *
 
 
-@dataclass
 class Hero:
-    position: pygame.Vector2
-    rectangle = NULL_RECTANGLE.copy()
+    def __init__(self):
+        self.position = pygame.Vector2()
+        self.surface = load_tile("0099")
+        self.target_tile = 0, 0
 
     def render(self, screen: pygame.Surface):
-        player_rectangle = pygame.Rect(0, 0, HERO_RADIUS * 2, HERO_RADIUS * 2)
-        player_rectangle.center = self.position  # type: ignore
-        self.rectangle = pygame.draw.rect(screen, HERO_COLOR, player_rectangle, 0, 2)
+        hero_rect = self.surface.get_rect(center=self.position)
+        screen.blit(self.surface, hero_rect)
+
+        if DEBUG_RENDER_HERO_TARGET_TILE:
+            tile_width = TILE_RADIUS * 2
+            tile_height = TILE_RADIUS * 2
+            target_tile_rect = pygame.Rect(0, 0, tile_width, tile_height)
+            target_tile_rect.topleft = (
+                tile_width * self.target_tile[0],
+                tile_height * self.target_tile[1],
+            )
+            pygame.draw.rect(screen, "green", target_tile_rect, 5)

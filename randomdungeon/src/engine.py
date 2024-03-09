@@ -25,7 +25,8 @@ class Engine:
             self.screen.get_width() / 2.0, self.screen.get_height() / 2.0
         )
 
-        self.hero = Hero(screen_center.copy())
+        self.hero = Hero()
+        self.hero.position = screen_center.copy()
         self.room = Room()
 
         self.initialized = True

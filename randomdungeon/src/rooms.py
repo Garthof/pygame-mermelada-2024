@@ -1,19 +1,14 @@
-import enum
 import pygame
 
 from globals import *
+from utils import *
 
 
 class Room:
     def __init__(self):
-        self.tile_width = ROOM_TILE_RADIUS * 2
-        self.tile_height = ROOM_TILE_RADIUS * 2
+        self.tile_width = TILE_RADIUS * 2
+        self.tile_height = TILE_RADIUS * 2
         self.tile_size = self.tile_width, self.tile_height
-
-        def load_tile(file_idx: Path):
-            return pygame.image.load(
-                PATH_GRAPHICS_TILES / f"tile_{file_idx}.png"
-            ).convert()
 
         self.tile_surfs = {}
 
@@ -38,11 +33,6 @@ class Room:
 
         self.tile_surfs["corridor_left"] = load_tile("0010")
         self.tile_surfs["corridor_right"] = load_tile("0011")
-
-        for tile_name in self.tile_surfs:
-            tile_surf = self.tile_surfs[tile_name]
-            tile_surf = pygame.transform.scale(tile_surf, self.tile_size)
-            self.tile_surfs[tile_name] = tile_surf
 
         self.map_width_in_tiles = WINDOW_WIDTH // self.tile_width
         self.map_height_in_tiles = WINDOW_HEIGHT // self.tile_height
