@@ -61,12 +61,29 @@ def load_tile(file_idx: str, alpha=True) -> pygame.Surface:
     return surf
 
 
-def debug(text: str, position=pygame.Vector2(10, 10)):
-    screen = pygame.display.get_surface()
+def render_text(
+    text: str,
+    font: pygame.font.Font | None = None,
+    foreground: str = "white",
+    background: str | None = None,
+) -> pygame.Surface:
+    if not font:
+        font = pygame.font.Font(None, 30)
 
-    font = pygame.font.Font(None, 30)
-    text_surf = font.render(text, True, "White")
+    text_surf = font.render(text, True, foreground)
+    text_rect = text_surf.get_rect()
+    render_surf = pygame.Surface(text_rect.size)
+
+    if background:
+        pygame.draw.rect(render_surf, background, text_rect)
+
+    render_surf.blit(text_surf, text_rect)
+
+    return render_surf
+
+
+def debug(text: str, position=pygame.Vector2(10, 10)) -> None:
+    text_surf = render_text(text, background="black")
     text_rect = text_surf.get_rect(topleft=position)
-
-    pygame.draw.rect(screen, "Black", text_rect)
+    screen = pygame.display.get_surface()
     screen.blit(text_surf, text_rect)

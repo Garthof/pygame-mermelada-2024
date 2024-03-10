@@ -155,8 +155,7 @@ class Room:
 
         for j, tile_row in enumerate(self.tile_map):
             for i, tile_surf in enumerate(tile_row):
-                tile_pos = i * tile_width, j * tile_height
-                tile_rect = tile_surf.get_rect(topleft=tile_pos)
+                tile_rect = tile_surf.get_rect(topleft=tile_top_left((i, j)))
                 screen.blit(tile_surf, tile_rect)
 
                 if DEBUG_RENDER_TILE_BORDERS:

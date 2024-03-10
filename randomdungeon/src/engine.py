@@ -94,6 +94,7 @@ class Engine:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:  # closing window
                 self.running = False
+
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pressed_buttons = pygame.mouse.get_pressed()
                 if pressed_buttons[0]:
@@ -106,10 +107,12 @@ class Engine:
                                 self.hero_enemy_target = enemy
 
             if event.type == self.enemy_walk_event:
-                self.enemy.target_tile_idx = (
-                    self.enemy.current_tile_idx
-                    + pygame.Vector2(random.randint(-5, 5), 0)
-                )
+                self.enemy.target_tile_idx = pygame.Vector2(-1, -1)
+                while not is_valid_tile(self.enemy.target_tile_idx):
+                    self.enemy.target_tile_idx = (
+                        self.enemy.current_tile_idx
+                        + pygame.Vector2(random.randint(-5, 5), 0)
+                    )
 
         hover_mouse_position = pygame.mouse.get_pos()
         self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
@@ -160,9 +163,18 @@ class Engine:
         pygame.display.flip()
 
     def __render_game_map(self) -> None:
+        # Cache text surfaces
+        element_type_text_surfs = {
+            element_type: render_text(str(element_type)) for element_type in ElementType
+        }
+
+        # Blit the cached text surfaces on screen, instead of calling debug on each iteration
+        # (used to incur in a huge performance loss)
         for j, tile_row in enumerate(self.game_map):
             for i, element_type in enumerate(tile_row):
-                debug(str(element_type), tile_top_left((i, j)))
+                text_surf = element_type_text_surfs[element_type]
+                text_rect = text_surf.get_rect(topleft=tile_top_left((i, j)))
+                self.screen.blit(text_surf, text_rect)
 
     def __render_stats(self) -> None:
         x_pos, y_pos = 10, 10
