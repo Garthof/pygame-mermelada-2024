@@ -84,6 +84,8 @@ class Engine:
         self.hero.render()
         self.mouse_tile_cursor.render()
 
+        debug(f"FPS: {round(self.clock.get_fps(), 1)}")
+
         pygame.display.flip()
 
     def __update_time(self):

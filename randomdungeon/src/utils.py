@@ -3,6 +3,17 @@ import pygame
 from globals import *
 
 
+def debug(text: str, position=pygame.Vector2(10, 10)):
+    screen = pygame.display.get_surface()
+
+    font = pygame.font.Font(None, 30)
+    text_surf = font.render(str(text), True, "White")
+    text_rect = text_surf.get_rect(topleft=position)
+
+    pygame.draw.rect(screen, "Black", text_rect)
+    screen.blit(text_surf, text_rect)
+
+
 def load_tile(file_idx: str, alpha=True) -> pygame.Surface:
     surf = pygame.image.load(GRAPHICS_TILES_PATH / f"tile_{file_idx}.png")
     if alpha:
