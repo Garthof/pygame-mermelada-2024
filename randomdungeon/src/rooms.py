@@ -128,5 +128,5 @@ class Room:
                 tile_rect = tile_surf.get_rect(topleft=tile_pos)
                 screen.blit(tile_surf, tile_rect)
 
-                if DEBUG_DRAW_TILE_BORDERS:
+                if DEBUG_RENDER_TILE_BORDERS:
                     pygame.draw.rect(screen, "black", tile_rect, 1)

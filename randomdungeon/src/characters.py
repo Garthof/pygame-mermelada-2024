@@ -4,9 +4,27 @@ from globals import *
 from utils import *
 
 
-class Hero:
-    def __init__(self):
-        self.surface = load_tile("0099")
+class TileCursor:
+    def __init__(self) -> None:
+        self.color = "green"
+        self.thickness = 5
+        self.position = pygame.Vector2()
+        self.tile_idx = pygame.Vector2()
+
+    def animate(self):
+        self.tile_idx = tile_idx(self.position)
+
+    def render(self):
+        screen = pygame.display.get_surface()
+        tile_width, tile_height = tile_size()
+        target_tile_rect = pygame.Rect(0, 0, tile_width, tile_height)
+        target_tile_rect.topleft = tile_top_left(self.tile_idx)
+        pygame.draw.rect(screen, self.color, target_tile_rect, self.thickness)
+
+
+class Character:
+    def __init__(self, tile_idx: str):
+        self.surface = load_tile(tile_idx)
         self.position = pygame.Vector2()
         self.current_tile_idx = pygame.Vector2()
         self.target_tile_idx = None
@@ -26,7 +44,9 @@ class Hero:
                 self.current_tile_idx = self.next_tile_idx
                 self.position = tile_center(self.current_tile_idx)
 
-                if are_same_tile(self.current_tile_idx, self.target_tile_idx):
+                if self.target_tile_idx and are_same_tile(
+                    self.current_tile_idx, self.target_tile_idx
+                ):
                     self.target_tile_idx = None
 
     def render(self):
@@ -72,21 +92,3 @@ class Hero:
         tile_cursor.position = tile_center(tile_idx)
         tile_cursor.animate()
         tile_cursor.render()
-
-
-class TileCursor:
-    def __init__(self) -> None:
-        self.color = "green"
-        self.thickness = 5
-        self.position = pygame.Vector2()
-        self.tile_idx = pygame.Vector2()
-
-    def animate(self):
-        self.tile_idx = tile_idx(self.position)
-
-    def render(self):
-        screen = pygame.display.get_surface()
-        tile_width, tile_height = tile_size()
-        target_tile_rect = pygame.Rect(0, 0, tile_width, tile_height)
-        target_tile_rect.topleft = tile_top_left(self.tile_idx)
-        pygame.draw.rect(screen, self.color, target_tile_rect, self.thickness)
