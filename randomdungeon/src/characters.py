@@ -1,7 +1,18 @@
+import enum
 import pygame
 
+from game import *
 from globals import *
 from utils import *
+
+
+class MovementState(enum.Enum):
+    IDLE = enum.auto()
+    CHECK_MOVE = enum.auto()
+    MOVE = enum.auto()
+    REACHED_NEXT_TILE = enum.auto()
+    REACHED_TARGET_TILE = enum.auto()
+    BLOCKED = enum.auto()
 
 
 class TileCursor:
@@ -24,33 +35,54 @@ class TileCursor:
 
 class Character:
     def __init__(self, tile_idx: str) -> None:
+        self.game: Game | None = None
         self.surface = load_tile(tile_idx)
         self.position = pygame.Vector2()
         self.current_tile_idx = pygame.Vector2()
         self.target_tile_idx: pygame.Vector2 | None = None
         self.next_tile_idx = self.current_tile_idx
-        self.is_walking = False
+        self.movement_state = MovementState.IDLE
         self.life_points = 1
 
-    def animate(self, time_delta_in_secs: float) -> None:
-        if self.target_tile_idx and are_same_tile(
-            self.current_tile_idx, self.next_tile_idx
-        ):
+    def update(self) -> None:
+        if self.movement_state == MovementState.IDLE:
+            if self.target_tile_idx:
+                self.movement_state = MovementState.CHECK_MOVE
+
+        elif self.movement_state == MovementState.CHECK_MOVE:
             self.__set_next_tile_towards_target()
-            return
-
-        if not are_same_tile(self.current_tile_idx, self.next_tile_idx):
             if self.__can_move_to_next_tile():
-                self.__move_to_next_tile(time_delta_in_secs)
+                self.movement_state = MovementState.MOVE
+            else:
+                self.movement_state = MovementState.BLOCKED
 
+        elif self.movement_state == MovementState.MOVE:
             if self.__has_reached_tile(self.next_tile_idx):
-                self.current_tile_idx = self.next_tile_idx
-                self.position = tile_center(self.current_tile_idx)
+                self.movement_state = MovementState.REACHED_NEXT_TILE
 
-                if self.target_tile_idx and are_same_tile(
-                    self.current_tile_idx, self.target_tile_idx
-                ):
-                    self.target_tile_idx = None
+        elif self.movement_state == MovementState.REACHED_NEXT_TILE:
+            self.current_tile_idx = self.next_tile_idx
+            self.position = tile_center(self.current_tile_idx)
+            if self.current_tile_idx == self.target_tile_idx:
+                self.movement_state = MovementState.REACHED_TARGET_TILE
+            else:
+                self.movement_state = MovementState.CHECK_MOVE
+
+        elif self.movement_state == MovementState.REACHED_TARGET_TILE:
+            self.target_tile_idx = None
+            self.movement_state = MovementState.IDLE
+
+        elif self.movement_state == MovementState.BLOCKED:
+            self.target_tile_idx = None
+            self.next_tile_idx = self.current_tile_idx
+            self.movement_state = MovementState.IDLE
+
+        else:
+            raise RuntimeError("Invalid movement state")
+
+    def animate(self, time_delta_in_secs: float) -> None:
+        if self.movement_state == MovementState.MOVE:
+            self.__move_to_next_tile(time_delta_in_secs)
 
     def render(self) -> None:
         screen = pygame.display.get_surface()
@@ -80,7 +112,11 @@ class Character:
                     self.next_tile_idx = self.current_tile_idx + pygame.Vector2(0, 1)
 
     def __can_move_to_next_tile(self) -> bool:
-        return True  # TODO
+        if self.game:
+            object_in_next_tile = self.game.object_at(self.next_tile_idx)
+            return object_in_next_tile == GameObjectType.FLOOR
+
+        return True
 
     def __move_to_next_tile(self, time_delta_in_secs: float) -> None:
         delta = self.next_tile_idx - self.current_tile_idx

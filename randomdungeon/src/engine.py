@@ -26,7 +26,10 @@ class Engine:
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("Random Dungeon")
 
+        self.game = Game(window_size_in_tiles())
+
         self.hero = Character(HERO_TILE_FILE_IDX)
+        self.hero.game = self.game
         self.hero.current_tile_idx = pygame.Vector2(
             window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
         )
@@ -35,6 +38,7 @@ class Engine:
         self.hero_enemy_target: Character | None = None
 
         self.enemy = Character("0110")
+        self.enemy.game = self.game
         self.enemy.current_tile_idx = pygame.Vector2(12, 3)
         self.enemy.next_tile_idx = self.enemy.current_tile_idx
         self.enemy.position = tile_center(self.enemy.current_tile_idx)
@@ -46,8 +50,6 @@ class Engine:
         self.mouse_tile_cursor.thickness = 5
 
         self.room = Room()
-
-        self.game = Game(window_size_in_tiles())
 
         self.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
 
@@ -93,14 +95,15 @@ class Engine:
                         for enemy in self.enemies:
                             if are_same_tile(enemy.current_tile_idx, pressed_tile):
                                 self.hero_enemy_target = enemy
+                                break
 
             if event.type == self.enemy_walk_event:
-                self.enemy.target_tile_idx = pygame.Vector2(-1, -1)
-                while not is_valid_tile(self.enemy.target_tile_idx):
-                    self.enemy.target_tile_idx = (
-                        self.enemy.current_tile_idx
-                        + pygame.Vector2(random.randint(-5, 5), 0)
-                    )
+                for enemy in self.enemies:
+                    enemy.target_tile_idx = pygame.Vector2(-1, -1)
+                    while not is_valid_tile(enemy.target_tile_idx):
+                        enemy.target_tile_idx = enemy.current_tile_idx + pygame.Vector2(
+                            random.randint(-5, 5), 0
+                        )
 
         hover_mouse_position = pygame.mouse.get_pos()
         self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
@@ -108,24 +111,29 @@ class Engine:
     def __update(self) -> None:
         self.__update_game_map()
 
+        self.hero.update()
+        for enemy in self.enemies:
+            enemy.update()
+
         if self.hero_enemy_target:
-            self.hero.target_tile_idx = self.enemy.current_tile_idx
+            self.hero.target_tile_idx = self.hero_enemy_target.current_tile_idx
 
     def __update_game_map(self) -> None:
         self.game.update_map_from_room(self.room)
 
         self.game.map[int(self.hero.current_tile_idx.y)][
             int(self.hero.current_tile_idx.x)
-        ] = ElementType.HERO
+        ] = GameObjectType.HERO
 
         for enemy in self.enemies:
             self.game.map[int(enemy.current_tile_idx.y)][
                 int(enemy.current_tile_idx.x)
-            ] = ElementType.ENEMY
+            ] = GameObjectType.ENEMY
 
     def __animate(self) -> None:
         self.hero.animate(self.time_delta_in_secs)
-        self.enemy.animate(self.time_delta_in_secs)
+        for enemy in self.enemies:
+            enemy.animate(self.time_delta_in_secs)
         self.mouse_tile_cursor.animate()
 
     def __render(self) -> None:
@@ -148,6 +156,7 @@ class Engine:
         x_pos, y_pos = 10, 10
         debug(f"FPS: {round(self.clock.get_fps(), 1)}", (x_pos, y_pos))
         debug(f"Mouse: {self.mouse_tile_cursor.tile_idx}", (x_pos, y_pos := y_pos + 20))
+        debug(f"Hero: {self.hero.movement_state}", (x_pos, y_pos := y_pos + 20))
 
     def __update_time(self) -> None:
         self.current_time_in_secs = time.time()
