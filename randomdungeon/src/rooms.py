@@ -119,7 +119,9 @@ class Room:
 
         return map
 
-    def render(self, screen: pygame.Surface):
+    def render(self):
+        screen = pygame.display.get_surface()
+
         for j, tile_row in enumerate(self.map):
             for i, tile_surf in enumerate(tile_row):
                 tile_pos = i * self.tile_width, j * self.tile_height
