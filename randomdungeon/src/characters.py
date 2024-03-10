@@ -62,7 +62,7 @@ class Hero:
     def __has_reached_tile(self, tile_idx: pygame.Vector2 | tuple[int, int]):
         hero_top_left = self.position - pygame.Vector2(TILE_RADIUS, TILE_RADIUS)
         dist_to_tile = hero_top_left.distance_to(tile_top_left(tile_idx))
-        return dist_to_tile <= 2.0
+        return dist_to_tile <= HERO_DISTANCE_TO_TILE_EPSILON
 
     def __render_tile_cursor(
         self, tile_idx: pygame.Vector2 | tuple[int, int], color: str

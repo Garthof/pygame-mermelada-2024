@@ -41,15 +41,22 @@ class Engine:
 
         self.room = Room()
 
+        self.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
+
         self.initialized = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        pygame.freetype.quit()
+        pygame.mixer.quit()
         pygame.quit()
 
     def run(self):
         if not self.initialized:
             raise RuntimeError("Engine not initialized")
+
+        self.background_music.play(-1, 0, 5000)
+        self.background_music.set_volume(0.5)
 
         self.previous_time_in_secs = time.time()
         self.running = True
