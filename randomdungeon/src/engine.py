@@ -30,11 +30,14 @@ class Engine:
         )
         self.hero.next_tile_idx = self.hero.current_tile_idx
         self.hero.position = tile_center(self.hero.current_tile_idx)
+        self.hero_enemy_target = None
 
         self.enemy = Character("0110")
         self.enemy.current_tile_idx = pygame.Vector2(12, 3)
         self.enemy.next_tile_idx = self.enemy.current_tile_idx
         self.enemy.position = tile_center(self.enemy.current_tile_idx)
+
+        self.enemies = [self.enemy]
 
         self.mouse_tile_cursor = TileCursor()
         self.mouse_tile_cursor.color = "white"
@@ -66,6 +69,7 @@ class Engine:
         self.running = True
         while self.running:
             self.__read_events()
+            self.__update()
             self.__animate()
             self.__render()
             self.__update_time()
@@ -80,7 +84,12 @@ class Engine:
                 if pressed_buttons[0]:
                     pressed_tile = tile_idx(pygame.mouse.get_pos())
                     if is_valid_tile(pressed_tile):
+                        self.hero_enemy_target = None
                         self.hero.target_tile_idx = pressed_tile
+                        for enemy in self.enemies:
+                            if are_same_tile(enemy.current_tile_idx, pressed_tile):
+                                self.hero_enemy_target = enemy
+
             if event.type == self.enemy_walk_event:
                 self.enemy.target_tile_idx = (
                     self.enemy.current_tile_idx
@@ -90,6 +99,10 @@ class Engine:
         pressed_tile = pygame.mouse.get_pos()
         self.mouse_tile_cursor.position = pygame.Vector2(pressed_tile)
 
+    def __update(self):
+        if self.hero_enemy_target:
+            self.hero.target_tile_idx = self.enemy.current_tile_idx
+
     def __animate(self):
         self.hero.animate(self.time_delta_in_secs)
         self.enemy.animate(self.time_delta_in_secs)
@@ -98,8 +111,9 @@ class Engine:
     def __render(self):
         self.screen.fill(BACKGROUND_COLOR)
         self.room.render()
+        for enemy in self.enemies:
+            enemy.render()
         self.hero.render()
-        self.enemy.render()
         self.mouse_tile_cursor.render()
 
         if DEBUG_RENDER_STATS:

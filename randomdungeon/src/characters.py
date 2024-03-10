@@ -30,6 +30,7 @@ class Character:
         self.target_tile_idx = None
         self.next_tile_idx = self.current_tile_idx
         self.is_walking = False
+        self.life_points = 1
 
     def animate(self, time_delta_in_secs: float):
         if self.target_tile_idx and are_same_tile(
