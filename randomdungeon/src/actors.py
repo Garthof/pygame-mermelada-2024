@@ -6,7 +6,7 @@ from globals import *
 from utils import *
 
 
-class MovementState(enum.Enum):
+class CharacterState(enum.Enum):
     IDLE = enum.auto()
     CHECK_MOVE = enum.auto()
     MOVE = enum.auto()
@@ -15,8 +15,8 @@ class MovementState(enum.Enum):
     BLOCKED = enum.auto()
 
 
-class StanceState(enum.Enum):
-    NORMAL = enum.auto()
+class HeroState(enum.Enum):
+    WANDER = enum.auto()
     PURSUIT = enum.auto()
     ATTACK = enum.auto()
 
@@ -47,53 +47,53 @@ class Character:
         self.current_tile_idx = pygame.Vector2()
         self.target_tile_idx: pygame.Vector2 | None = None
         self.next_tile_idx = self.current_tile_idx
-        self.movement_state = MovementState.IDLE
+        self.movement_state = CharacterState.IDLE
         self.life_points = 1
 
-    def update(self) -> None:
-        if self.movement_state == MovementState.IDLE:
+    def update(self, time_delta_in_secs: float) -> None:
+        if self.movement_state == CharacterState.IDLE:
             if self.target_tile_idx:
-                self.movement_state = MovementState.CHECK_MOVE
+                self.movement_state = CharacterState.CHECK_MOVE
 
-        elif self.movement_state == MovementState.CHECK_MOVE:
+        elif self.movement_state == CharacterState.CHECK_MOVE:
             self.__set_next_tile_towards_target()
             if self.__can_move_to_next_tile():
-                self.movement_state = MovementState.MOVE
+                self.movement_state = CharacterState.MOVE
             else:
-                self.movement_state = MovementState.BLOCKED
+                self.movement_state = CharacterState.BLOCKED
 
-        elif self.movement_state == MovementState.MOVE:
+        elif self.movement_state == CharacterState.MOVE:
             if self.__has_reached_tile(self.next_tile_idx):
-                self.movement_state = MovementState.REACHED_NEXT_TILE
+                self.movement_state = CharacterState.REACHED_NEXT_TILE
 
-        elif self.movement_state == MovementState.REACHED_NEXT_TILE:
+        elif self.movement_state == CharacterState.REACHED_NEXT_TILE:
             self.current_tile_idx = self.next_tile_idx
             self.position = tile_center(self.current_tile_idx)
             if self.current_tile_idx == self.target_tile_idx:
-                self.movement_state = MovementState.REACHED_TARGET_TILE
+                self.movement_state = CharacterState.REACHED_TARGET_TILE
             else:
-                self.movement_state = MovementState.CHECK_MOVE
+                self.movement_state = CharacterState.CHECK_MOVE
 
-        elif self.movement_state == MovementState.REACHED_TARGET_TILE:
+        elif self.movement_state == CharacterState.REACHED_TARGET_TILE:
             self.target_tile_idx = None
-            self.movement_state = MovementState.IDLE
+            self.movement_state = CharacterState.IDLE
 
-        elif self.movement_state == MovementState.BLOCKED:
+        elif self.movement_state == CharacterState.BLOCKED:
             self.target_tile_idx = None
             self.next_tile_idx = self.current_tile_idx
-            self.movement_state = MovementState.IDLE
+            self.movement_state = CharacterState.IDLE
 
         else:
-            raise RuntimeError("Invalid movement state")
+            raise RuntimeError("Invalid character state")
 
     def animate(self, time_delta_in_secs: float) -> None:
-        if self.movement_state == MovementState.MOVE:
+        if self.movement_state == CharacterState.MOVE:
             self.__move_to_next_tile(time_delta_in_secs)
 
     def render(self) -> None:
         screen = pygame.display.get_surface()
-        hero_rect = self.surface.get_rect(center=self.position)
-        screen.blit(self.surface, hero_rect)
+        character_rect = self.surface.get_rect(center=self.position)
+        screen.blit(self.surface, character_rect)
 
         if DEBUG_RENDER_CHARACTER_TILES:
             if self.target_tile_idx:
@@ -129,8 +129,8 @@ class Character:
         self.position += delta * HERO_SPEED * time_delta_in_secs
 
     def __has_reached_tile(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> bool:
-        hero_top_left = self.position - pygame.Vector2(TILE_RADIUS, TILE_RADIUS)
-        squared_dist_to_tile = hero_top_left.distance_squared_to(
+        character_top_left = self.position - pygame.Vector2(TILE_RADIUS, TILE_RADIUS)
+        squared_dist_to_tile = character_top_left.distance_squared_to(
             tile_top_left(tile_idx)
         )
         return (
@@ -148,12 +148,80 @@ class Character:
         tile_cursor.render()
 
 
+class Enemy(Character):
+    pass
+
+
 class Hero(Character):
     def __init__(self, tile_idx: str) -> None:
         super().__init__(tile_idx)
-        self.stance_state = StanceState.NORMAL
-        self.target_enemy: Enemy | None = None
+        self.stance_state = HeroState.WANDER
+        self.enemy_target: Enemy | None = None
+        self.attack_on_sight = False
+        self.attack_countdown_in_secs = 0.0
+        self.attack_remaining_time_in_secs = HERO_ATTACK_DURATION_IN_SECS
+
+        self.weapon = Weapon()
+
+    def update(self, time_delta_in_secs: float) -> None:
+        if self.stance_state == HeroState.WANDER:
+            if self.enemy_target:
+                self.target_tile_idx = self.enemy_target.current_tile_idx
+                self.stance_state = HeroState.PURSUIT
+            super().update(time_delta_in_secs)
+
+        elif self.stance_state == HeroState.PURSUIT:
+            if (
+                self.enemy_target
+                and self.__is_close_to_enemy(self.enemy_target)
+                and self.attack_on_sight
+                and self.attack_countdown_in_secs == 0.0
+            ):
+                self.attack_countdown_in_secs = HERO_ATTACK_COUNTDOWN_IN_SECS
+                self.stance_state = HeroState.ATTACK
+            else:
+                super().update(time_delta_in_secs)
+
+        elif self.stance_state == HeroState.ATTACK:
+            self.attack_remaining_time_in_secs -= time_delta_in_secs
+            if self.attack_remaining_time_in_secs <= 0.0:
+                self.stance_state = HeroState.WANDER
+                self.attack_remaining_time_in_secs = HERO_ATTACK_DURATION_IN_SECS
+
+        else:
+            raise RuntimeError("Invalid hero state")
+
+        self.__update_weapon_position()
+        self.__update_attack_countdown(time_delta_in_secs)
+
+    def render(self) -> None:
+        super().render()
+        self.weapon.render()
+
+    def __update_weapon_position(self):
+        self.weapon.position = self.position + WEAPON_POSITION_DELTA
+
+    def __update_attack_countdown(self, time_delta_in_secs: float) -> None:
+        self.attack_countdown_in_secs -= time_delta_in_secs
+        if self.attack_countdown_in_secs < 0.0:
+            self.attack_countdown_in_secs = 0.0
+
+    def __is_close_to_enemy(self, enemy: Enemy) -> bool:
+        return (
+            self.position.distance_squared_to(enemy.position)
+            <= HERO_ATTACK_DISTANCE * HERO_ATTACK_DISTANCE
+        )
 
 
-class Enemy(Character):
-    pass
+class Weapon:
+    def __init__(self) -> None:
+        self.surface = load_tile("0106")
+        self.surface = pygame.transform.rotozoom(
+            self.surface, WEAPON_ANGLE_IN_DEGREES, 1.0
+        )
+        self.position = pygame.Vector2()
+
+    def render(self):
+        screen = pygame.display.get_surface()
+        weapon_rect = self.surface.get_rect(center=self.position)
+        screen.blit(self.surface, weapon_rect)

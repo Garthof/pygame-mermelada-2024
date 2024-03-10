@@ -1,9 +1,6 @@
-from characters import *
-from engine import Engine
-from globals import *
-
-
 def main():
+    from engine import Engine
+
     with Engine() as engine:
         engine.run()
 

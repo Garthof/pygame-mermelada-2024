@@ -4,7 +4,7 @@ import random
 import time
 import typing
 
-from characters import *
+from actors import *
 from game import *
 from globals import *
 from rooms import *
@@ -36,9 +36,7 @@ class Engine:
         self.hero.next_tile_idx = self.hero.current_tile_idx
         self.hero.position = tile_center(self.hero.current_tile_idx)
 
-        self.hero_enemy_target: Character | None = None
-        self.hero_is_attacking = False
-        self.hero_attack_cooldown_in_secs = 0.0
+        self.hero_attack_countdown_in_secs = 0.0
 
         self.enemy = Enemy(ENEMY_CRAB_TILE_FILE_IDX)
         self.enemy.game = self.game
@@ -93,25 +91,12 @@ class Engine:
                 if pressed_buttons[0]:
                     pressed_tile = tile_idx(pygame.mouse.get_pos())
                     if is_valid_tile(pressed_tile):
-                        self.hero_enemy_target = None
                         self.hero.target_tile_idx = pressed_tile
                         for enemy in self.enemies:
                             if are_same_tile(enemy.current_tile_idx, pressed_tile):
-                                self.hero_enemy_target = enemy
+                                self.hero.enemy_target = enemy
+                                self.hero.attack_on_sight = True
                                 break
-
-                        if (
-                            self.hero_enemy_target
-                            and are_adjacent_tiles(
-                                self.hero.current_tile_idx,
-                                self.hero_enemy_target.current_tile_idx,
-                            )
-                            and self.hero_attack_cooldown_in_secs == 0.0
-                        ):
-                            self.hero_is_attacking = True
-                            self.hero_attack_cooldown_in_secs = (
-                                HERO_ATTACK_COOLDOWN_IN_SECS
-                            )
 
             if event.type == self.enemy_walk_event:
                 for enemy in self.enemies:
@@ -127,20 +112,13 @@ class Engine:
     def __update(self) -> None:
         self.__update_game_map()
 
-        self.hero.update()
+        self.hero.update(self.time_delta_in_secs)
         for enemy in self.enemies:
-            enemy.update()
+            enemy.update(self.time_delta_in_secs)
 
-        if self.hero_enemy_target:
-            self.hero.target_tile_idx = self.hero_enemy_target.current_tile_idx
-
-            if self.hero_is_attacking:
-                self.hero_enemy_target.life_points -= 1
-                self.hero_is_attacking = False
-
-        self.hero_attack_cooldown_in_secs -= self.time_delta_in_secs
-        if self.hero_attack_cooldown_in_secs < 0:
-            self.hero_attack_cooldown_in_secs = 0.0
+        self.hero_attack_countdown_in_secs -= self.time_delta_in_secs
+        if self.hero_attack_countdown_in_secs < 0:
+            self.hero_attack_countdown_in_secs = 0
 
         self.enemies = [enemy for enemy in self.enemies if enemy.life_points > 0]
 
@@ -182,7 +160,7 @@ class Engine:
         x_pos, y_pos = 10, 10
         debug(f"FPS: {round(self.clock.get_fps(), 1)}", (x_pos, y_pos))
         debug(f"Mouse: {self.mouse_tile_cursor.tile_idx}", (x_pos, y_pos := y_pos + 20))
-        debug(f"Hero: {self.hero.movement_state}", (x_pos, y_pos := y_pos + 20))
+        debug(f"Hero: {self.hero.stance_state}", (x_pos, y_pos := y_pos + 20))
 
     def __update_time(self) -> None:
         self.current_time_in_secs = time.time()
