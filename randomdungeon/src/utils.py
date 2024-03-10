@@ -35,6 +35,16 @@ def are_same_tile(
     )
 
 
+def are_adjacent_tiles(
+    tile_idx_1: pygame.Vector2 | tuple[int, int],
+    tile_idx_2: pygame.Vector2 | tuple[int, int],
+) -> bool:
+    dist_in_tiles = pygame.Vector2(tile_idx_1).distance_squared_to(
+        pygame.Vector2(tile_idx_2)
+    )
+    return dist_in_tiles < 1.5
+
+
 def tile_center(tile_idx: pygame.Vector2 | tuple[int, int]) -> pygame.Vector2:
     return pygame.Vector2(
         tile_idx[0] * TILE_RADIUS * 2 + TILE_RADIUS,

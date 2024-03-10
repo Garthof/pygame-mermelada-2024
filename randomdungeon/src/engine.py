@@ -28,16 +28,19 @@ class Engine:
 
         self.game = Game(window_size_in_tiles())
 
-        self.hero = Character(HERO_TILE_FILE_IDX)
+        self.hero = Hero(HERO_TILE_FILE_IDX)
         self.hero.game = self.game
         self.hero.current_tile_idx = pygame.Vector2(
             window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
         )
         self.hero.next_tile_idx = self.hero.current_tile_idx
         self.hero.position = tile_center(self.hero.current_tile_idx)
-        self.hero_enemy_target: Character | None = None
 
-        self.enemy = Character("0110")
+        self.hero_enemy_target: Character | None = None
+        self.hero_is_attacking = False
+        self.hero_attack_cooldown_in_secs = 0.0
+
+        self.enemy = Enemy(ENEMY_CRAB_TILE_FILE_IDX)
         self.enemy.game = self.game
         self.enemy.current_tile_idx = pygame.Vector2(12, 3)
         self.enemy.next_tile_idx = self.enemy.current_tile_idx
@@ -97,6 +100,19 @@ class Engine:
                                 self.hero_enemy_target = enemy
                                 break
 
+                        if (
+                            self.hero_enemy_target
+                            and are_adjacent_tiles(
+                                self.hero.current_tile_idx,
+                                self.hero_enemy_target.current_tile_idx,
+                            )
+                            and self.hero_attack_cooldown_in_secs == 0.0
+                        ):
+                            self.hero_is_attacking = True
+                            self.hero_attack_cooldown_in_secs = (
+                                HERO_ATTACK_COOLDOWN_IN_SECS
+                            )
+
             if event.type == self.enemy_walk_event:
                 for enemy in self.enemies:
                     enemy.target_tile_idx = pygame.Vector2(-1, -1)
@@ -117,6 +133,16 @@ class Engine:
 
         if self.hero_enemy_target:
             self.hero.target_tile_idx = self.hero_enemy_target.current_tile_idx
+
+            if self.hero_is_attacking:
+                self.hero_enemy_target.life_points -= 1
+                self.hero_is_attacking = False
+
+        self.hero_attack_cooldown_in_secs -= self.time_delta_in_secs
+        if self.hero_attack_cooldown_in_secs < 0:
+            self.hero_attack_cooldown_in_secs = 0.0
+
+        self.enemies = [enemy for enemy in self.enemies if enemy.life_points > 0]
 
     def __update_game_map(self) -> None:
         self.game.update_map_from_room(self.room)

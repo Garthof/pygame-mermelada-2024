@@ -15,6 +15,12 @@ class MovementState(enum.Enum):
     BLOCKED = enum.auto()
 
 
+class StanceState(enum.Enum):
+    NORMAL = enum.auto()
+    PURSUIT = enum.auto()
+    ATTACK = enum.auto()
+
+
 class TileCursor:
     def __init__(self) -> None:
         self.color = "green"
@@ -89,7 +95,7 @@ class Character:
         hero_rect = self.surface.get_rect(center=self.position)
         screen.blit(self.surface, hero_rect)
 
-        if DEBUG_RENDER_HERO_TILES:
+        if DEBUG_RENDER_CHARACTER_TILES:
             if self.target_tile_idx:
                 self.__render_tile_cursor(self.target_tile_idx, "red")
             self.__render_tile_cursor(self.next_tile_idx, "green")
@@ -124,8 +130,13 @@ class Character:
 
     def __has_reached_tile(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> bool:
         hero_top_left = self.position - pygame.Vector2(TILE_RADIUS, TILE_RADIUS)
-        dist_to_tile = hero_top_left.distance_to(tile_top_left(tile_idx))
-        return dist_to_tile <= CHARACTER_DISTANCE_TO_TILE_EPSILON
+        squared_dist_to_tile = hero_top_left.distance_squared_to(
+            tile_top_left(tile_idx)
+        )
+        return (
+            squared_dist_to_tile
+            <= CHARACTER_DISTANCE_TO_TILE_EPSILON * CHARACTER_DISTANCE_TO_TILE_EPSILON
+        )
 
     def __render_tile_cursor(
         self, tile_idx: pygame.Vector2 | tuple[int, int], color: str
@@ -135,3 +146,14 @@ class Character:
         tile_cursor.position = tile_center(tile_idx)
         tile_cursor.animate()
         tile_cursor.render()
+
+
+class Hero(Character):
+    def __init__(self, tile_idx: str) -> None:
+        super().__init__(tile_idx)
+        self.stance_state = StanceState.NORMAL
+        self.target_enemy: Enemy | None = None
+
+
+class Enemy(Character):
+    pass
