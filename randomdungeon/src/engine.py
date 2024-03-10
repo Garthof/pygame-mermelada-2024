@@ -5,20 +5,14 @@ import time
 import typing
 
 from characters import *
+from game import *
 from globals import *
 from rooms import *
 from utils import *
 
 
-class ElementType(enum.StrEnum):
-    FLOOR = "F"
-    OBSTACLE = "X"
-    HERO = "H"
-    ENEMY = "E"
-
-
 class Engine:
-    def __init__(self):
+    def __init__(self) -> None:
         self.time_delta_in_secs = 0.0
         self.current_time_in_secs = 0.0
         self.previous_time_in_secs = 0.0
@@ -53,13 +47,7 @@ class Engine:
 
         self.room = Room()
 
-        self.game_map_width_in_tiles, self.game_map_height_in_tiles = (
-            window_size_in_tiles()
-        )
-        self.game_map = [
-            [ElementType.FLOOR] * self.game_map_width_in_tiles
-            for _ in range(self.game_map_height_in_tiles)
-        ]
+        self.game = Game(window_size_in_tiles())
 
         self.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
 
@@ -118,28 +106,22 @@ class Engine:
         self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
 
     def __update(self) -> None:
-        self.__update_game_map_from_room()
-
-        self.game_map[int(self.hero.current_tile_idx.y)][
-            int(self.hero.current_tile_idx.x)
-        ] = ElementType.HERO
-
-        for enemy in self.enemies:
-            self.game_map[int(enemy.current_tile_idx.y)][
-                int(enemy.current_tile_idx.x)
-            ] = ElementType.ENEMY
+        self.__update_game_map()
 
         if self.hero_enemy_target:
             self.hero.target_tile_idx = self.enemy.current_tile_idx
 
-    def __update_game_map_from_room(self) -> None:
-        self.game_map = [
-            [
-                ElementType.FLOOR if tile == TileType.FLOOR else ElementType.OBSTACLE
-                for tile in tile_row
-            ]
-            for tile_row in self.room.room_map
-        ]
+    def __update_game_map(self) -> None:
+        self.game.update_map_from_room(self.room)
+
+        self.game.map[int(self.hero.current_tile_idx.y)][
+            int(self.hero.current_tile_idx.x)
+        ] = ElementType.HERO
+
+        for enemy in self.enemies:
+            self.game.map[int(enemy.current_tile_idx.y)][
+                int(enemy.current_tile_idx.x)
+            ] = ElementType.ENEMY
 
     def __animate(self) -> None:
         self.hero.animate(self.time_delta_in_secs)
@@ -155,26 +137,12 @@ class Engine:
         self.mouse_tile_cursor.render()
 
         if DEBUG_RENDER_GAME_MAP:
-            self.__render_game_map()
+            self.game.render_map()
 
         if DEBUG_RENDER_STATS:
             self.__render_stats()
 
         pygame.display.flip()
-
-    def __render_game_map(self) -> None:
-        # Cache text surfaces
-        element_type_text_surfs = {
-            element_type: render_text(str(element_type)) for element_type in ElementType
-        }
-
-        # Blit the cached text surfaces on screen, instead of calling debug on each iteration
-        # (used to incur in a huge performance loss)
-        for j, tile_row in enumerate(self.game_map):
-            for i, element_type in enumerate(tile_row):
-                text_surf = element_type_text_surfs[element_type]
-                text_rect = text_surf.get_rect(topleft=tile_top_left((i, j)))
-                self.screen.blit(text_surf, text_rect)
 
     def __render_stats(self) -> None:
         x_pos, y_pos = 10, 10

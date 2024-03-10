@@ -64,19 +64,20 @@ class Character:
             self.__render_tile_cursor(self.current_tile_idx, "blue")
 
     def __set_next_tile_towards_target(self) -> None:
-        self.next_tile_idx = self.current_tile_idx
-        dist_to_target_in_tiles = self.target_tile_idx - self.current_tile_idx
+        if self.target_tile_idx:
+            self.next_tile_idx = self.current_tile_idx
+            dist_to_target_in_tiles = self.target_tile_idx - self.current_tile_idx
 
-        if abs(dist_to_target_in_tiles.x) > abs(dist_to_target_in_tiles.y):
-            if dist_to_target_in_tiles.x > 0:
-                self.next_tile_idx = self.current_tile_idx + pygame.Vector2(1, 0)
-            elif dist_to_target_in_tiles.x < 0:
-                self.next_tile_idx = self.current_tile_idx - pygame.Vector2(1, 0)
-        else:
-            if dist_to_target_in_tiles.y < 0:
-                self.next_tile_idx = self.current_tile_idx - pygame.Vector2(0, 1)
-            elif dist_to_target_in_tiles.y > 0:
-                self.next_tile_idx = self.current_tile_idx + pygame.Vector2(0, 1)
+            if abs(dist_to_target_in_tiles.x) > abs(dist_to_target_in_tiles.y):
+                if dist_to_target_in_tiles.x > 0:
+                    self.next_tile_idx = self.current_tile_idx + pygame.Vector2(1, 0)
+                elif dist_to_target_in_tiles.x < 0:
+                    self.next_tile_idx = self.current_tile_idx - pygame.Vector2(1, 0)
+            else:
+                if dist_to_target_in_tiles.y < 0:
+                    self.next_tile_idx = self.current_tile_idx - pygame.Vector2(0, 1)
+                elif dist_to_target_in_tiles.y > 0:
+                    self.next_tile_idx = self.current_tile_idx + pygame.Vector2(0, 1)
 
     def __can_move_to_next_tile(self) -> bool:
         return True  # TODO
