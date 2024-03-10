@@ -1,11 +1,20 @@
+import enum
 import pygame
 import random
 import time
+import typing
 
 from characters import *
 from globals import *
 from rooms import *
 from utils import *
+
+
+class ElementType(enum.StrEnum):
+    FLOOR = "F"
+    OBSTACLE = "X"
+    HERO = "H"
+    ENEMY = "E"
 
 
 class Engine:
@@ -15,9 +24,8 @@ class Engine:
         self.previous_time_in_secs = 0.0
         self.running = False
 
-    def __enter__(self):
+    def __enter__(self) -> typing.Self:
         pygame.init()
-        pygame.freetype.init()
         pygame.mixer.init()
 
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -30,7 +38,7 @@ class Engine:
         )
         self.hero.next_tile_idx = self.hero.current_tile_idx
         self.hero.position = tile_center(self.hero.current_tile_idx)
-        self.hero_enemy_target = None
+        self.hero_enemy_target: Character | None = None
 
         self.enemy = Character("0110")
         self.enemy.current_tile_idx = pygame.Vector2(12, 3)
@@ -45,17 +53,24 @@ class Engine:
 
         self.room = Room()
 
+        self.game_map_width_in_tiles, self.game_map_height_in_tiles = (
+            window_size_in_tiles()
+        )
+        self.game_map = [
+            [ElementType.FLOOR] * self.game_map_width_in_tiles
+            for _ in range(self.game_map_height_in_tiles)
+        ]
+
         self.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
 
         self.initialized = True
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        pygame.freetype.quit()
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
         pygame.mixer.quit()
         pygame.quit()
 
-    def run(self):
+    def run(self) -> None:
         if not self.initialized:
             raise RuntimeError("Engine not initialized")
 
@@ -75,7 +90,7 @@ class Engine:
             self.__update_time()
             self.clock.tick(FPS)
 
-    def __read_events(self):
+    def __read_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:  # closing window
                 self.running = False
@@ -96,19 +111,39 @@ class Engine:
                     + pygame.Vector2(random.randint(-5, 5), 0)
                 )
 
-        pressed_tile = pygame.mouse.get_pos()
-        self.mouse_tile_cursor.position = pygame.Vector2(pressed_tile)
+        hover_mouse_position = pygame.mouse.get_pos()
+        self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
 
-    def __update(self):
+    def __update(self) -> None:
+        self.__update_game_map_from_room()
+
+        self.game_map[int(self.hero.current_tile_idx.y)][
+            int(self.hero.current_tile_idx.x)
+        ] = ElementType.HERO
+
+        for enemy in self.enemies:
+            self.game_map[int(enemy.current_tile_idx.y)][
+                int(enemy.current_tile_idx.x)
+            ] = ElementType.ENEMY
+
         if self.hero_enemy_target:
             self.hero.target_tile_idx = self.enemy.current_tile_idx
 
-    def __animate(self):
+    def __update_game_map_from_room(self) -> None:
+        self.game_map = [
+            [
+                ElementType.FLOOR if tile == TileType.FLOOR else ElementType.OBSTACLE
+                for tile in tile_row
+            ]
+            for tile_row in self.room.room_map
+        ]
+
+    def __animate(self) -> None:
         self.hero.animate(self.time_delta_in_secs)
         self.enemy.animate(self.time_delta_in_secs)
         self.mouse_tile_cursor.animate()
 
-    def __render(self):
+    def __render(self) -> None:
         self.screen.fill(BACKGROUND_COLOR)
         self.room.render()
         for enemy in self.enemies:
@@ -116,17 +151,25 @@ class Engine:
         self.hero.render()
         self.mouse_tile_cursor.render()
 
+        if DEBUG_RENDER_GAME_MAP:
+            self.__render_game_map()
+
         if DEBUG_RENDER_STATS:
             self.__render_stats()
 
         pygame.display.flip()
 
-    def __render_stats(self):
+    def __render_game_map(self) -> None:
+        for j, tile_row in enumerate(self.game_map):
+            for i, element_type in enumerate(tile_row):
+                debug(str(element_type), tile_top_left((i, j)))
+
+    def __render_stats(self) -> None:
         x_pos, y_pos = 10, 10
         debug(f"FPS: {round(self.clock.get_fps(), 1)}", (x_pos, y_pos))
         debug(f"Mouse: {self.mouse_tile_cursor.tile_idx}", (x_pos, y_pos := y_pos + 20))
 
-    def __update_time(self):
+    def __update_time(self) -> None:
         self.current_time_in_secs = time.time()
         self.time_delta_in_secs = self.current_time_in_secs - self.previous_time_in_secs
         self.previous_time_in_secs = self.current_time_in_secs

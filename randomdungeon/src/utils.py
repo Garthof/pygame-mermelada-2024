@@ -3,32 +3,6 @@ import pygame
 from globals import *
 
 
-def debug(text: str, position=pygame.Vector2(10, 10)):
-    screen = pygame.display.get_surface()
-
-    font = pygame.font.Font(None, 30)
-    text_surf = font.render(str(text), True, "White")
-    text_rect = text_surf.get_rect(topleft=position)
-
-    pygame.draw.rect(screen, "Black", text_rect)
-    screen.blit(text_surf, text_rect)
-
-
-def load_tile(file_idx: str, alpha=True) -> pygame.Surface:
-    surf = pygame.image.load(GRAPHICS_TILES_PATH / f"tile_{file_idx}.png")
-    if alpha:
-        surf = surf.convert_alpha()
-    else:
-        surf = surf.convert()
-
-    tile_width = TILE_RADIUS * 2
-    tile_height = TILE_RADIUS * 2
-    tile_size = tile_width, tile_height
-    surf = pygame.transform.scale(surf, tile_size)
-
-    return surf
-
-
 def tile_size():
     return TILE_RADIUS * 2, TILE_RADIUS * 2
 
@@ -73,3 +47,26 @@ def tile_top_left(tile_idx: pygame.Vector2 | tuple[int, int]) -> pygame.Vector2:
         tile_idx[0] * TILE_RADIUS * 2,
         tile_idx[1] * TILE_RADIUS * 2,
     )
+
+
+def load_tile(file_idx: str, alpha=True) -> pygame.Surface:
+    surf = pygame.image.load(GRAPHICS_TILES_PATH / f"tile_{file_idx}.png")
+    if alpha:
+        surf = surf.convert_alpha()
+    else:
+        surf = surf.convert()
+
+    surf = pygame.transform.scale(surf, tile_size())
+
+    return surf
+
+
+def debug(text: str, position=pygame.Vector2(10, 10)):
+    screen = pygame.display.get_surface()
+
+    font = pygame.font.Font(None, 30)
+    text_surf = font.render(text, True, "White")
+    text_rect = text_surf.get_rect(topleft=position)
+
+    pygame.draw.rect(screen, "Black", text_rect)
+    screen.blit(text_surf, text_rect)
