@@ -1,5 +1,6 @@
 import enum
 import pygame
+import random
 
 from game import *
 from globals import *
@@ -34,8 +35,8 @@ class TileCursor:
 
 
 class Character:
-    def __init__(self, tile_idx: str) -> None:
-        self.game: GameStatus | None = None
+    def __init__(self, game: Game, tile_idx: str) -> None:
+        self.game = game
         self.surface = load_tile(tile_idx)
         self.position = pygame.Vector2()
         self.current_tile_idx = pygame.Vector2()
@@ -149,14 +150,49 @@ class Character:
 
 
 class Monster(Character):
-    def __init__(self, tile_idx: str):
-        super().__init__(tile_idx)
+    def __init__(self, game: Game, tile_idx: str):
+        super().__init__(game, tile_idx)
         self.life_points = 3
+        self.countdown_in_secs = 5.0
+
+    def update(self, delta_time_in_secs: float):
+        super().update(delta_time_in_secs)
+
+        self.countdown_in_secs -= delta_time_in_secs
+        if self.countdown_in_secs <= 0:
+            self.countdown_in_secs = 5.0
+            self.trigger()
+
+    def trigger(self):
+        pass
+
+
+class MonsterCrab(Monster):
+    def __init__(self, game: Game):
+        super().__init__(game, MONSTER_CRAB_TILE_FILE_IDX)
+
+    def trigger(self):
+        super().trigger()
+
+        self.target_tile_idx = pygame.Vector2(-1, -1)
+        while not is_valid_tile(self.target_tile_idx):
+            direction = random.choice(
+                [
+                    pygame.Vector2(-1, 0),
+                    pygame.Vector2(+1, 0),
+                    pygame.Vector2(0, -1),
+                    pygame.Vector2(0, +1),
+                ]
+            )
+            distance = random.randint(1, 5)
+            self.target_tile_idx = self.current_tile_idx + direction * distance
+
+        self.countdown_in_secs += random.uniform(-2.0, +2.0)
 
 
 class Hero(Character):
-    def __init__(self) -> None:
-        super().__init__(HERO_TILE_FILE_IDX)
+    def __init__(self, game: Game) -> None:
+        super().__init__(game, HERO_TILE_FILE_IDX)
         self.weapon = Weapon()
 
     def animate(self, time_delta_in_secs: float) -> None:

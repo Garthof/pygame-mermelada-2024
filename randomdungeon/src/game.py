@@ -11,7 +11,7 @@ class GameObjectType(enum.StrEnum):
     MONSTER = "M"
 
 
-class GameStatus:
+class Game:
     def __init__(self, map_size_in_tiles: tuple[int, int]) -> None:
         self.map_width_in_tiles, self.map_height_in_tiles = map_size_in_tiles
         self.map = [

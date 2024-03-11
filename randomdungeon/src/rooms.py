@@ -14,7 +14,7 @@ class TileType(enum.Enum):
 
 
 class Room:
-    def __init__(self, game: GameStatus) -> None:
+    def __init__(self, game: Game) -> None:
         self.game = game
         self.tile_surfs: dict[str, pygame.Surface] = {}
         self.__load_tiles()
@@ -22,7 +22,7 @@ class Room:
         self.map_width_in_tiles, self.map_height_in_tiles = window_size_in_tiles()
         self.tile_map, self.room_map = self.__generate_maps()
 
-        self.hero = Hero()
+        self.hero = Hero(self.game)
         self.hero.game = self.game
         self.hero.current_tile_idx = pygame.Vector2(
             window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
@@ -251,26 +251,38 @@ class Room:
 
 
 class MonsterRoom(Room):
-    def __init__(self, game: GameStatus) -> None:
+    def __init__(self, game: Game, num_monsters: int) -> None:
         super().__init__(game)
 
-        monster = Monster(MONSTER_CRAB_TILE_FILE_IDX)
-        monster.game = self.game
-        monster.current_tile_idx = pygame.Vector2(12, 3)
-        monster.next_tile_idx = monster.current_tile_idx
-        monster.position = tile_center(monster.current_tile_idx)
-        monster.collision_box.center = monster.position  # type: ignore
+        self.monsters: list[Monster] = []
+        self.__generate_monsters(num_monsters)
 
-        self.monsters = [monster]
-        self.monster_walk_event = pygame.USEREVENT
+    def __generate_monsters(self, num_monsters):
+        super()._update_game_map()
 
-    def enter(self) -> None:
-        super().enter()
-        pygame.time.set_timer(self.monster_walk_event, 2500)
+        for _ in range(num_monsters):
+            monster = MonsterCrab(self.game)
+            monster.current_tile_idx = self.__random_empty_floor_tile()
+            monster.next_tile_idx = monster.current_tile_idx
+            monster.position = tile_center(monster.current_tile_idx)
+            monster.collision_box.center = monster.position
+            self.monsters.append(monster)
 
-    def exit(self) -> None:
-        pygame.time.set_timer(self.monster_walk_event, 0)
-        super().exit()
+            self.game.map[int(monster.current_tile_idx.y)][
+                int(monster.current_tile_idx.x)
+            ] = GameObjectType.MONSTER
+
+    def __random_empty_floor_tile(self):
+        tile_idx = pygame.Vector2(-1.0, -1.0)
+        while not (
+            is_valid_tile(tile_idx)
+            and self.game.object_at(tile_idx) == GameObjectType.FLOOR
+        ):
+            tile_idx = pygame.Vector2(
+                random.randint(1, 14),
+                random.randint(2, 10),
+            )
+        return tile_idx
 
     def read_events(self, events: list[pygame.event.Event]) -> None:
         super().read_events(events)
@@ -285,15 +297,6 @@ class MonsterRoom(Room):
                                 self.__shoot_fireball(monster)
                         else:
                             self.hero.target_tile_idx = pressed_tile
-
-            if event.type == self.monster_walk_event:
-                for monster in self.monsters:
-                    monster.target_tile_idx = pygame.Vector2(-1, -1)
-                    while not is_valid_tile(monster.target_tile_idx):
-                        monster.target_tile_idx = (
-                            monster.current_tile_idx
-                            + pygame.Vector2(random.randint(-5, 5), 0)
-                        )
 
     def __monster_on_tile(self, tile_idx: pygame.Vector2) -> Monster | None:
         for monster in self.monsters:
