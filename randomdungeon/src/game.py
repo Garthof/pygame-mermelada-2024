@@ -41,7 +41,12 @@ class Game:
         self.door_left_tile_idx = pygame.Vector2(7.0, 1.0)
         self.door_right_tile_idx = pygame.Vector2(8.0, 1.0)
 
-        self.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
+        self.background_music = pygame.mixer.Sound(
+            AUDIO_MUSIC_PATH / "dungeon-maze.mp3"
+        )
+        self.fireball_effect = pygame.mixer.Sound(
+            AUDIO_EFFECTS_PATH / "impactBell_heavy_001.ogg"
+        )
 
     def object_at(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> GameObjectType:
         return self.map[int(tile_idx[1])][int(tile_idx[0])]

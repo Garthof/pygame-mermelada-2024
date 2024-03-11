@@ -82,7 +82,7 @@ class Engine:
 
             case GameState.PLAY if isinstance(self.room, MonsterRoom):
                 self.game.background_music.play(-1, 0, 5000)
-                self.game.background_music.set_volume(0.5)
+                self.game.background_music.set_volume(0.2)
                 self.room.update(self.time_delta_in_secs)
 
                 if self.game.hero_life_points == 0:
@@ -95,6 +95,7 @@ class Engine:
                     self.__move_to_next_room()
 
             case GameState.DISPLAY_GAME_OVER:
+                self.game.background_music.stop()
                 self.room = MenuRoom(self.game, render_achievements=True)
                 self.room.enter()
                 self.game.state = GameState.DISPLAY_MENU
