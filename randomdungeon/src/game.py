@@ -8,7 +8,7 @@ class GameObjectType(enum.StrEnum):
     FLOOR = "   "
     OBSTACLE = "X"
     HERO = "H"
-    ENEMY = "E"
+    MONSTER = "M"
 
 
 class GameStatus:

@@ -89,7 +89,7 @@ class Character:
                 * time_delta_in_secs
             )
             self.position += delta
-            self.collision_box.center = self.position
+            self.collision_box.center = self.position  # type: ignore
 
     def render(self) -> None:
         screen = pygame.display.get_surface()
@@ -148,7 +148,7 @@ class Character:
         tile_cursor.render()
 
 
-class Enemy(Character):
+class Monster(Character):
     def __init__(self, tile_idx: str):
         super().__init__(tile_idx)
         self.life_points = 3
@@ -188,7 +188,7 @@ class Fireball:
         self.rotated_surface = self.surface
         self.position = pygame.Vector2()
         self.direction = pygame.Vector2()
-        self.angle = 0
+        self.angle = 0.0
         self.collision_box = self.surface.get_rect().scale_by(0.8, 0.8)
 
     def animate(self, time_delta_in_secs) -> None:
@@ -197,7 +197,7 @@ class Fireball:
             self.angle = 0.0
 
         self.position += self.direction * FIREBALL_SPEED * time_delta_in_secs
-        self.collision_box.center = self.position
+        self.collision_box.center = self.position  # type: ignore
 
     def render(self) -> None:
         screen = pygame.display.get_surface()

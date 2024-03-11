@@ -26,7 +26,7 @@ class Engine:
         pygame.display.set_caption("Random Dungeon")
 
         self.game = GameStatus(window_size_in_tiles())
-        self.room = RoomWithEnemies(self.game)
+        self.room = MonsterRoom(self.game)
 
         self.initialized = True
         return self

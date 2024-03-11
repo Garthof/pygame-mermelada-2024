@@ -250,26 +250,26 @@ class Room:
                     pygame.draw.rect(screen, "black", tile_rect, 1)
 
 
-class RoomWithEnemies(Room):
+class MonsterRoom(Room):
     def __init__(self, game: GameStatus) -> None:
         super().__init__(game)
 
-        enemy = Enemy(ENEMY_CRAB_TILE_FILE_IDX)
-        enemy.game = self.game
-        enemy.current_tile_idx = pygame.Vector2(12, 3)
-        enemy.next_tile_idx = enemy.current_tile_idx
-        enemy.position = tile_center(enemy.current_tile_idx)
-        enemy.collision_box.center = enemy.position  # type: ignore
+        monster = Monster(MONSTER_CRAB_TILE_FILE_IDX)
+        monster.game = self.game
+        monster.current_tile_idx = pygame.Vector2(12, 3)
+        monster.next_tile_idx = monster.current_tile_idx
+        monster.position = tile_center(monster.current_tile_idx)
+        monster.collision_box.center = monster.position  # type: ignore
 
-        self.enemies = [enemy]
-        self.enemy_walk_event = pygame.USEREVENT
+        self.monsters = [monster]
+        self.monster_walk_event = pygame.USEREVENT
 
     def enter(self) -> None:
         super().enter()
-        pygame.time.set_timer(self.enemy_walk_event, 2500)
+        pygame.time.set_timer(self.monster_walk_event, 2500)
 
     def exit(self) -> None:
-        pygame.time.set_timer(self.enemy_walk_event, 0)
+        pygame.time.set_timer(self.monster_walk_event, 0)
         super().exit()
 
     def read_events(self, events: list[pygame.event.Event]) -> None:
@@ -280,29 +280,30 @@ class RoomWithEnemies(Room):
                 if pressed_buttons[0]:
                     pressed_tile = tile_idx(pygame.mouse.get_pos())
                     if is_valid_tile(pressed_tile):
-                        if enemy := self.__enemy_on_tile(pressed_tile):
+                        if monster := self.__monster_on_tile(pressed_tile):
                             if not self.fireball:
-                                self.__shoot_fireball(enemy)
+                                self.__shoot_fireball(monster)
                         else:
                             self.hero.target_tile_idx = pressed_tile
 
-            if event.type == self.enemy_walk_event:
-                for enemy in self.enemies:
-                    enemy.target_tile_idx = pygame.Vector2(-1, -1)
-                    while not is_valid_tile(enemy.target_tile_idx):
-                        enemy.target_tile_idx = enemy.current_tile_idx + pygame.Vector2(
-                            random.randint(-5, 5), 0
+            if event.type == self.monster_walk_event:
+                for monster in self.monsters:
+                    monster.target_tile_idx = pygame.Vector2(-1, -1)
+                    while not is_valid_tile(monster.target_tile_idx):
+                        monster.target_tile_idx = (
+                            monster.current_tile_idx
+                            + pygame.Vector2(random.randint(-5, 5), 0)
                         )
 
-    def __enemy_on_tile(self, tile_idx: pygame.Vector2) -> Enemy | None:
-        for enemy in self.enemies:
-            if are_same_tile(enemy.current_tile_idx, tile_idx):
-                return enemy
+    def __monster_on_tile(self, tile_idx: pygame.Vector2) -> Monster | None:
+        for monster in self.monsters:
+            if are_same_tile(monster.current_tile_idx, tile_idx):
+                return monster
         return None
 
-    def __shoot_fireball(self, enemy: Enemy):
+    def __shoot_fireball(self, monster: Monster):
         self.fireball = Fireball()
-        self.fireball.direction = (enemy.position - self.hero.position).normalize()
+        self.fireball.direction = (monster.position - self.hero.position).normalize()
         self.fireball.position = (
             self.hero.position + self.fireball.direction * TILE_RADIUS
         )
@@ -311,35 +312,37 @@ class RoomWithEnemies(Room):
         super().update(time_delta_in_secs)
 
         if self.fireball:
-            if hit_enemy := self.__fireball_collision__enemy():
-                hit_enemy.life_points -= 1
+            if hit_monster := self.__fireball_collision__monster():
+                hit_monster.life_points -= 1
                 self.fireball = None
 
-        self.enemies = [enemy for enemy in self.enemies if enemy.life_points > 0]
-        for enemy in self.enemies:
-            enemy.update(time_delta_in_secs)
+        self.monsters = [
+            monster for monster in self.monsters if monster.life_points > 0
+        ]
+        for monster in self.monsters:
+            monster.update(time_delta_in_secs)
 
     def _update_game_map(self) -> None:
         super()._update_game_map()
 
-        for enemy in self.enemies:
-            self.game.map[int(enemy.current_tile_idx.y)][
-                int(enemy.current_tile_idx.x)
-            ] = GameObjectType.ENEMY
+        for monster in self.monsters:
+            self.game.map[int(monster.current_tile_idx.y)][
+                int(monster.current_tile_idx.x)
+            ] = GameObjectType.MONSTER
 
-    def __fireball_collision__enemy(self) -> Enemy | None:
+    def __fireball_collision__monster(self) -> Monster | None:
         if self.fireball:
-            for enemy in self.enemies:
-                if enemy.collision_box.colliderect(self.fireball.collision_box):
-                    return enemy
+            for monster in self.monsters:
+                if monster.collision_box.colliderect(self.fireball.collision_box):
+                    return monster
         return None
 
     def animate(self, time_delta_in_secs: float) -> None:
         super().animate(time_delta_in_secs)
-        for enemy in self.enemies:
-            enemy.animate(time_delta_in_secs)
+        for monster in self.monsters:
+            monster.animate(time_delta_in_secs)
 
     def render(self) -> None:
         super().render()
-        for enemy in self.enemies:
-            enemy.render()
+        for monster in self.monsters:
+            monster.render()
