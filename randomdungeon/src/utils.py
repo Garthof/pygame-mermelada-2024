@@ -1,5 +1,7 @@
 import pygame
 
+from typing import Never, NoReturn
+
 from globals import *
 
 
@@ -71,6 +73,10 @@ def load_tile(file_idx: str, alpha=True) -> pygame.Surface:
     return surf
 
 
+def is_valid_position(position: pygame.Vector2 | tuple[int, int]) -> bool:
+    return 0 <= position[0] < WINDOW_WIDTH and 0 <= position[1] < WINDOW_HEIGHT
+
+
 def render_text(
     text: str,
     font: pygame.font.Font | None = None,
@@ -97,3 +103,7 @@ def debug(text: str, position=pygame.Vector2(10, 10)) -> None:
     text_rect = text_surf.get_rect(topleft=position)
     screen = pygame.display.get_surface()
     screen.blit(text_surf, text_rect)
+
+
+def assert_unreachable(arg: Never) -> NoReturn:
+    raise AssertionError(f"Unreachable code")

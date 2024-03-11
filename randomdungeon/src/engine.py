@@ -1,4 +1,3 @@
-import enum
 import pygame
 import random
 import time
@@ -28,13 +27,14 @@ class Engine:
 
         self.game = Game(window_size_in_tiles())
 
-        self.hero = Hero(HERO_TILE_FILE_IDX)
+        self.hero = Hero()
         self.hero.game = self.game
         self.hero.current_tile_idx = pygame.Vector2(
             window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
         )
         self.hero.next_tile_idx = self.hero.current_tile_idx
         self.hero.position = tile_center(self.hero.current_tile_idx)
+        self.hero.collision_box.center = self.hero.position  # type: ignore
 
         self.hero_attack_countdown_in_secs = 0.0
 
@@ -43,8 +43,11 @@ class Engine:
         self.enemy.current_tile_idx = pygame.Vector2(12, 3)
         self.enemy.next_tile_idx = self.enemy.current_tile_idx
         self.enemy.position = tile_center(self.enemy.current_tile_idx)
+        self.enemy.collision_box.center = self.enemy.position  # type: ignore
 
         self.enemies = [self.enemy]
+
+        self.fireball: Fireball | None = None
 
         self.mouse_tile_cursor = TileCursor()
         self.mouse_tile_cursor.color = "white"
@@ -91,12 +94,11 @@ class Engine:
                 if pressed_buttons[0]:
                     pressed_tile = tile_idx(pygame.mouse.get_pos())
                     if is_valid_tile(pressed_tile):
-                        self.hero.target_tile_idx = pressed_tile
-                        for enemy in self.enemies:
-                            if are_same_tile(enemy.current_tile_idx, pressed_tile):
-                                self.hero.enemy_target = enemy
-                                self.hero.attack_on_sight = True
-                                break
+                        if enemy := self.__enemy_on_tile(pressed_tile):
+                            if not self.fireball:
+                                self.__shoot_fireball(enemy)
+                        else:
+                            self.hero.target_tile_idx = pressed_tile
 
             if event.type == self.enemy_walk_event:
                 for enemy in self.enemies:
@@ -109,6 +111,19 @@ class Engine:
         hover_mouse_position = pygame.mouse.get_pos()
         self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
 
+    def __enemy_on_tile(self, tile_idx: pygame.Vector2) -> Enemy | None:
+        for enemy in self.enemies:
+            if are_same_tile(enemy.current_tile_idx, tile_idx):
+                return enemy
+        return None
+
+    def __shoot_fireball(self, enemy: Enemy):
+        self.fireball = Fireball()
+        self.fireball.direction = (enemy.position - self.hero.position).normalize()
+        self.fireball.position = (
+            self.hero.position + self.fireball.direction * TILE_RADIUS
+        )
+
     def __update(self) -> None:
         self.__update_game_map()
 
@@ -116,11 +131,21 @@ class Engine:
         for enemy in self.enemies:
             enemy.update(self.time_delta_in_secs)
 
-        self.hero_attack_countdown_in_secs -= self.time_delta_in_secs
-        if self.hero_attack_countdown_in_secs < 0:
-            self.hero_attack_countdown_in_secs = 0
+        if self.fireball:
+            if not is_valid_position(self.fireball.position):
+                self.fireball = None
+            if hit_enemy := self.__fireball_collision():
+                hit_enemy.life_points -= 1
+                self.fireball = None
 
         self.enemies = [enemy for enemy in self.enemies if enemy.life_points > 0]
+
+    def __fireball_collision(self) -> Enemy | None:
+        if self.fireball:
+            for enemy in self.enemies:
+                if enemy.collision_box.colliderect(self.fireball.collision_box):
+                    return enemy
+        return None
 
     def __update_game_map(self) -> None:
         self.game.update_map_from_room(self.room)
@@ -138,6 +163,8 @@ class Engine:
         self.hero.animate(self.time_delta_in_secs)
         for enemy in self.enemies:
             enemy.animate(self.time_delta_in_secs)
+        if self.fireball:
+            self.fireball.animate(self.time_delta_in_secs)
         self.mouse_tile_cursor.animate()
 
     def __render(self) -> None:
@@ -146,6 +173,8 @@ class Engine:
         for enemy in self.enemies:
             enemy.render()
         self.hero.render()
+        if self.fireball:
+            self.fireball.render()
         self.mouse_tile_cursor.render()
 
         if DEBUG_RENDER_GAME_MAP:
@@ -160,7 +189,6 @@ class Engine:
         x_pos, y_pos = 10, 10
         debug(f"FPS: {round(self.clock.get_fps(), 1)}", (x_pos, y_pos))
         debug(f"Mouse: {self.mouse_tile_cursor.tile_idx}", (x_pos, y_pos := y_pos + 20))
-        debug(f"Hero: {self.hero.stance_state}", (x_pos, y_pos := y_pos + 20))
 
     def __update_time(self) -> None:
         self.current_time_in_secs = time.time()

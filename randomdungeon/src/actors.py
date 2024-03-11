@@ -15,12 +15,6 @@ class CharacterState(enum.Enum):
     BLOCKED = enum.auto()
 
 
-class HeroState(enum.Enum):
-    WANDER = enum.auto()
-    PURSUIT = enum.auto()
-    ATTACK = enum.auto()
-
-
 class TileCursor:
     def __init__(self) -> None:
         self.color = "green"
@@ -49,6 +43,7 @@ class Character:
         self.next_tile_idx = self.current_tile_idx
         self.movement_state = CharacterState.IDLE
         self.life_points = 1
+        self.collision_box = self.surface.get_rect().scale_by(0.8, 0.8)
 
     def update(self, time_delta_in_secs: float) -> None:
         if self.movement_state == CharacterState.IDLE:
@@ -88,7 +83,13 @@ class Character:
 
     def animate(self, time_delta_in_secs: float) -> None:
         if self.movement_state == CharacterState.MOVE:
-            self.__move_to_next_tile(time_delta_in_secs)
+            delta = (
+                (self.next_tile_idx - self.current_tile_idx)
+                * HERO_SPEED
+                * time_delta_in_secs
+            )
+            self.position += delta
+            self.collision_box.center = self.position
 
     def render(self) -> None:
         screen = pygame.display.get_surface()
@@ -100,6 +101,9 @@ class Character:
                 self.__render_tile_cursor(self.target_tile_idx, "red")
             self.__render_tile_cursor(self.next_tile_idx, "green")
             self.__render_tile_cursor(self.current_tile_idx, "blue")
+
+        if DEBUG_RENDER_COLLISION_BOX:
+            pygame.draw.rect(screen, "black", self.collision_box, 3)
 
     def __set_next_tile_towards_target(self) -> None:
         if self.target_tile_idx:
@@ -124,10 +128,6 @@ class Character:
 
         return True
 
-    def __move_to_next_tile(self, time_delta_in_secs: float) -> None:
-        delta = self.next_tile_idx - self.current_tile_idx
-        self.position += delta * HERO_SPEED * time_delta_in_secs
-
     def __has_reached_tile(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> bool:
         character_top_left = self.position - pygame.Vector2(TILE_RADIUS, TILE_RADIUS)
         squared_dist_to_tile = character_top_left.distance_squared_to(
@@ -149,79 +149,61 @@ class Character:
 
 
 class Enemy(Character):
-    pass
+    def __init__(self, tile_idx: str):
+        super().__init__(tile_idx)
+        self.life_points = 3
 
 
 class Hero(Character):
-    def __init__(self, tile_idx: str) -> None:
-        super().__init__(tile_idx)
-        self.stance_state = HeroState.WANDER
-        self.enemy_target: Enemy | None = None
-        self.attack_on_sight = False
-        self.attack_countdown_in_secs = 0.0
-        self.attack_remaining_time_in_secs = HERO_ATTACK_DURATION_IN_SECS
-
+    def __init__(self) -> None:
+        super().__init__(HERO_TILE_FILE_IDX)
         self.weapon = Weapon()
 
-    def update(self, time_delta_in_secs: float) -> None:
-        if self.stance_state == HeroState.WANDER:
-            if self.enemy_target:
-                self.target_tile_idx = self.enemy_target.current_tile_idx
-                self.stance_state = HeroState.PURSUIT
-            super().update(time_delta_in_secs)
-
-        elif self.stance_state == HeroState.PURSUIT:
-            if (
-                self.enemy_target
-                and self.__is_close_to_enemy(self.enemy_target)
-                and self.attack_on_sight
-                and self.attack_countdown_in_secs == 0.0
-            ):
-                self.attack_countdown_in_secs = HERO_ATTACK_COUNTDOWN_IN_SECS
-                self.stance_state = HeroState.ATTACK
-            else:
-                super().update(time_delta_in_secs)
-
-        elif self.stance_state == HeroState.ATTACK:
-            self.attack_remaining_time_in_secs -= time_delta_in_secs
-            if self.attack_remaining_time_in_secs <= 0.0:
-                self.stance_state = HeroState.WANDER
-                self.attack_remaining_time_in_secs = HERO_ATTACK_DURATION_IN_SECS
-
-        else:
-            raise RuntimeError("Invalid hero state")
-
-        self.__update_weapon_position()
-        self.__update_attack_countdown(time_delta_in_secs)
+    def animate(self, time_delta_in_secs: float) -> None:
+        super().animate(time_delta_in_secs)
+        self.weapon.position = self.position + WEAPON_POSITION_DELTA
 
     def render(self) -> None:
         super().render()
         self.weapon.render()
 
-    def __update_weapon_position(self):
-        self.weapon.position = self.position + WEAPON_POSITION_DELTA
-
-    def __update_attack_countdown(self, time_delta_in_secs: float) -> None:
-        self.attack_countdown_in_secs -= time_delta_in_secs
-        if self.attack_countdown_in_secs < 0.0:
-            self.attack_countdown_in_secs = 0.0
-
-    def __is_close_to_enemy(self, enemy: Enemy) -> bool:
-        return (
-            self.position.distance_squared_to(enemy.position)
-            <= HERO_ATTACK_DISTANCE * HERO_ATTACK_DISTANCE
-        )
-
 
 class Weapon:
     def __init__(self) -> None:
-        self.surface = load_tile("0106")
+        self.surface = load_tile(WEAPON_TILE_FILE_IDX)
         self.surface = pygame.transform.rotozoom(
-            self.surface, WEAPON_ANGLE_IN_DEGREES, 1.0
+            self.surface, WEAPON_IDLE_ANGLE_IN_DEGREES, 1.0
         )
         self.position = pygame.Vector2()
 
-    def render(self):
+    def render(self) -> None:
         screen = pygame.display.get_surface()
         weapon_rect = self.surface.get_rect(center=self.position)
         screen.blit(self.surface, weapon_rect)
+
+
+class Fireball:
+    def __init__(self) -> None:
+        self.surface = load_tile(FIREBALL_TILE_FILE_IDX)
+        self.rotated_surface = self.surface
+        self.position = pygame.Vector2()
+        self.direction = pygame.Vector2()
+        self.angle = 0
+        self.collision_box = self.surface.get_rect().scale_by(0.8, 0.8)
+
+    def animate(self, time_delta_in_secs) -> None:
+        self.angle += FIREBALL_ROTATION_SPEED * time_delta_in_secs
+        if self.angle >= 90.0:
+            self.angle = 0.0
+
+        self.position += self.direction * FIREBALL_SPEED * time_delta_in_secs
+        self.collision_box.center = self.position
+
+    def render(self) -> None:
+        screen = pygame.display.get_surface()
+        rotated_surface = pygame.transform.rotozoom(self.surface, self.angle, 0.8)
+        surface_rect = rotated_surface.get_rect(center=self.position)
+        screen.blit(rotated_surface, surface_rect)
+
+        if DEBUG_RENDER_COLLISION_BOX:
+            pygame.draw.rect(screen, "black", self.collision_box, 3)

@@ -1,6 +1,7 @@
 import enum
 import pygame
 
+from actors import *
 from rooms import *
 from utils import *
 
