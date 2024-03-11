@@ -389,10 +389,10 @@ class MonsterRoom(DungeonRoom):
             if (
                 monster.state == CharacterState.MOVE
                 and self.laser_countdown_in_secs < -0.0
-                and random.random() < 0.1
+                and random.random() < 0.5
             ):
                 self.__shoot_laser(monster)
-                self.laser_countdown_in_secs = 5.0 + random.uniform(-2.0, +2.0)
+                self.laser_countdown_in_secs = 2.0 + random.uniform(-1.0, +1.0)
 
         self.lasers = [
             laser
@@ -401,7 +401,26 @@ class MonsterRoom(DungeonRoom):
             and not self.__laser_collision_obstacle(laser)
         ]
 
+        for laser in self.lasers:
+            if laser.collision_box.colliderect(self.hero.collision_box):
+                self.game.hero_life_points -= 1
+
         self.laser_countdown_in_secs -= time_delta_in_secs
+
+    def _update_game_map(self) -> None:
+        super()._update_game_map()
+
+        for monster in self.monsters:
+            self.game.map[int(monster.current_tile_idx.y)][
+                int(monster.current_tile_idx.x)
+            ] = GameObjectType.MONSTER
+
+    def __fireball_collision__monster(self) -> Monster | None:
+        if self.fireball:
+            for monster in self.monsters:
+                if monster.collision_box.colliderect(self.fireball.collision_box):
+                    return monster
+        return None
 
     def __shoot_laser(self, monster: Monster):
         direction = pygame.Vector2(monster.next_tile_idx) - pygame.Vector2(
@@ -419,21 +438,6 @@ class MonsterRoom(DungeonRoom):
         laser_tile = tile_idx(laser.position)
         return self.game.object_at(laser_tile) == GameObjectType.OBSTACLE
 
-    def _update_game_map(self) -> None:
-        super()._update_game_map()
-
-        for monster in self.monsters:
-            self.game.map[int(monster.current_tile_idx.y)][
-                int(monster.current_tile_idx.x)
-            ] = GameObjectType.MONSTER
-
-    def __fireball_collision__monster(self) -> Monster | None:
-        if self.fireball:
-            for monster in self.monsters:
-                if monster.collision_box.colliderect(self.fireball.collision_box):
-                    return monster
-        return None
-
     def animate(self, time_delta_in_secs: float) -> None:
         super().animate(time_delta_in_secs)
         for monster in self.monsters:
@@ -450,8 +454,9 @@ class MonsterRoom(DungeonRoom):
 
 
 class MenuRoom(Room):
-    def __init__(self, game: Game) -> None:
+    def __init__(self, game: Game, render_achievements=False) -> None:
         super().__init__(game)
+        self.render_achievements = render_achievements
 
     def read_events(self, events: list[Event]) -> None:
         super().read_events(events)
@@ -467,6 +472,10 @@ class MenuRoom(Room):
         self.__render_centered_text(
             "Click to start", WINDOW_HEIGHT - 60, self.game.menu_font
         )
+        if self.render_achievements:
+            self.__render_centered_text(
+                f"You achieved level {self.game.level}!", 300, self.game.menu_font
+            )
 
     def __render_centered_text(self, text: str, y_pos: int, font: pygame.font.Font):
         text_surf = render_text(text, font, "azure1", MENU_COLOR)

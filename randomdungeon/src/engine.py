@@ -80,21 +80,22 @@ class Engine:
                 self.room.enter()
                 self.game.state = GameState.PLAY
 
-            case GameState.PLAY:
-                if isinstance(self.room, MonsterRoom):
-                    self.game.background_music.play(-1, 0, 5000)
-                    self.game.background_music.set_volume(0.5)
-                    self.room.update(self.time_delta_in_secs)
+            case GameState.PLAY if isinstance(self.room, MonsterRoom):
+                self.game.background_music.play(-1, 0, 5000)
+                self.game.background_music.set_volume(0.5)
+                self.room.update(self.time_delta_in_secs)
 
-                    if not self.room.monsters and (
-                        self.room.hero.current_tile_idx == self.game.door_left_tile_idx
-                        or self.room.hero.current_tile_idx
-                        == self.game.door_right_tile_idx
-                    ):
-                        self.__move_to_next_room()
+                if self.game.hero_life_points == 0:
+                    self.game.state = GameState.DISPLAY_GAME_OVER
+
+                if not self.room.monsters and (
+                    self.room.hero.current_tile_idx == self.game.door_left_tile_idx
+                    or self.room.hero.current_tile_idx == self.game.door_right_tile_idx
+                ):
+                    self.__move_to_next_room()
 
             case GameState.DISPLAY_GAME_OVER:
-                self.room = MenuRoom(self.game)
+                self.room = MenuRoom(self.game, render_achievements=True)
                 self.room.enter()
                 self.game.state = GameState.DISPLAY_MENU
 
