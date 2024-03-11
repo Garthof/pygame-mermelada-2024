@@ -34,6 +34,8 @@ class Game:
             for _ in range(self.map_height_in_tiles)
         ]
 
+        self.hero_life_points = 3
+
         self.level = 1
 
         self.door_left_tile_idx = pygame.Vector2(7.0, 1.0)

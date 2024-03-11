@@ -311,6 +311,9 @@ class MonsterRoom(DungeonRoom):
         self.monsters: list[Monster] = []
         self.__generate_monsters(num_monsters)
 
+        self.lasers: list[Laser] = []
+        self.laser_countdown_in_secs = 5.0
+
     def __generate_monsters(self, num_monsters):
         super()._update_game_map()
 
@@ -379,6 +382,38 @@ class MonsterRoom(DungeonRoom):
         self.are_open_doors = len(self.monsters) == 0
         for monster in self.monsters:
             monster.update(time_delta_in_secs)
+            if (
+                monster.state == CharacterState.MOVE
+                and self.laser_countdown_in_secs < -0.0
+                and random.random() < 0.1
+            ):
+                self.__shoot_laser(monster)
+                self.laser_countdown_in_secs = 5.0 + random.uniform(-2.0, +2.0)
+
+        self.lasers = [
+            laser
+            for laser in self.lasers
+            if is_valid_tile(tile_idx(laser.position))
+            and not self.__laser_collision_obstacle(laser)
+        ]
+
+        self.laser_countdown_in_secs -= time_delta_in_secs
+
+    def __shoot_laser(self, monster: Monster):
+        direction = pygame.Vector2(monster.next_tile_idx) - pygame.Vector2(
+            monster.current_tile_idx
+        )
+        if direction.magnitude_squared() > 0.1:
+            laser = Laser()
+            laser.direction = direction
+            laser.position = monster.position + laser.direction * TILE_RADIUS
+            laser.angle = direction.angle_to(pygame.Vector2(0.0, -1.0))
+
+            self.lasers.append(laser)
+
+    def __laser_collision_obstacle(self, laser: Laser) -> bool:
+        laser_tile = tile_idx(laser.position)
+        return self.game.object_at(laser_tile) == GameObjectType.OBSTACLE
 
     def _update_game_map(self) -> None:
         super()._update_game_map()
@@ -399,11 +434,15 @@ class MonsterRoom(DungeonRoom):
         super().animate(time_delta_in_secs)
         for monster in self.monsters:
             monster.animate(time_delta_in_secs)
+        for laser in self.lasers:
+            laser.animate(time_delta_in_secs)
 
     def render(self) -> None:
         super().render()
         for monster in self.monsters:
             monster.render()
+        for laser in self.lasers:
+            laser.render()
 
 
 class MenuRoom(Room):

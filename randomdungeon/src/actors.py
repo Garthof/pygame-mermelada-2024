@@ -42,48 +42,48 @@ class Character:
         self.current_tile_idx = pygame.Vector2()
         self.target_tile_idx: pygame.Vector2 | None = None
         self.next_tile_idx = self.current_tile_idx
-        self.movement_state = CharacterState.IDLE
+        self.state = CharacterState.IDLE
         self.life_points = 1
         self.collision_box = self.surface.get_rect().scale_by(0.8, 0.8)
 
     def update(self, time_delta_in_secs: float) -> None:
-        if self.movement_state == CharacterState.IDLE:
+        if self.state == CharacterState.IDLE:
             if self.target_tile_idx:
-                self.movement_state = CharacterState.CHECK_MOVE
+                self.state = CharacterState.CHECK_MOVE
 
-        elif self.movement_state == CharacterState.CHECK_MOVE:
+        elif self.state == CharacterState.CHECK_MOVE:
             self.__set_next_tile_towards_target()
             if self.__can_move_to_next_tile():
-                self.movement_state = CharacterState.MOVE
+                self.state = CharacterState.MOVE
             else:
-                self.movement_state = CharacterState.BLOCKED
+                self.state = CharacterState.BLOCKED
 
-        elif self.movement_state == CharacterState.MOVE:
+        elif self.state == CharacterState.MOVE:
             if self.__has_reached_tile(self.next_tile_idx):
-                self.movement_state = CharacterState.REACHED_NEXT_TILE
+                self.state = CharacterState.REACHED_NEXT_TILE
 
-        elif self.movement_state == CharacterState.REACHED_NEXT_TILE:
+        elif self.state == CharacterState.REACHED_NEXT_TILE:
             self.current_tile_idx = self.next_tile_idx
             self.position = tile_center(self.current_tile_idx)
             if self.current_tile_idx == self.target_tile_idx:
-                self.movement_state = CharacterState.REACHED_TARGET_TILE
+                self.state = CharacterState.REACHED_TARGET_TILE
             else:
-                self.movement_state = CharacterState.CHECK_MOVE
+                self.state = CharacterState.CHECK_MOVE
 
-        elif self.movement_state == CharacterState.REACHED_TARGET_TILE:
+        elif self.state == CharacterState.REACHED_TARGET_TILE:
             self.target_tile_idx = None
-            self.movement_state = CharacterState.IDLE
+            self.state = CharacterState.IDLE
 
-        elif self.movement_state == CharacterState.BLOCKED:
+        elif self.state == CharacterState.BLOCKED:
             self.target_tile_idx = None
             self.next_tile_idx = self.current_tile_idx
-            self.movement_state = CharacterState.IDLE
+            self.state = CharacterState.IDLE
 
         else:
             raise RuntimeError("Invalid character state")
 
     def animate(self, time_delta_in_secs: float) -> None:
-        if self.movement_state == CharacterState.MOVE:
+        if self.state == CharacterState.MOVE:
             delta = (
                 (self.next_tile_idx - self.current_tile_idx)
                 * HERO_SPEED
@@ -224,7 +224,6 @@ class Weapon:
 class Fireball:
     def __init__(self) -> None:
         self.surface = load_tile(FIREBALL_TILE_FILE_IDX)
-        self.rotated_surface = self.surface
         self.position = pygame.Vector2()
         self.direction = pygame.Vector2()
         self.angle = 0.0
@@ -241,6 +240,28 @@ class Fireball:
     def render(self) -> None:
         screen = pygame.display.get_surface()
         rotated_surface = pygame.transform.rotozoom(self.surface, self.angle, 0.8)
+        surface_rect = rotated_surface.get_rect(center=self.position)
+        screen.blit(rotated_surface, surface_rect)
+
+        if DEBUG_RENDER_COLLISION_BOX:
+            pygame.draw.rect(screen, "black", self.collision_box, 3)
+
+
+class Laser:
+    def __init__(self) -> None:
+        self.surface = load_tile(LASER_TILE_FILE_IDX)
+        self.position = pygame.Vector2()
+        self.direction = pygame.Vector2()
+        self.angle = 0.0
+        self.collision_box = self.surface.get_rect().scale_by(0.6, 0.6)
+
+    def animate(self, time_delta_in_secs) -> None:
+        self.position += self.direction * LASER_SPEED * time_delta_in_secs
+        self.collision_box.center = self.position  # type: ignore
+
+    def render(self) -> None:
+        screen = pygame.display.get_surface()
+        rotated_surface = pygame.transform.rotozoom(self.surface, self.angle, 0.6)
         surface_rect = rotated_surface.get_rect(center=self.position)
         screen.blit(rotated_surface, surface_rect)
 
