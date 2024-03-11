@@ -405,6 +405,12 @@ class MonsterRoom(DungeonRoom):
             if laser.collision_box.colliderect(self.hero.collision_box):
                 self.game.hero_life_points -= 1
 
+        self.lasers = [
+            laser
+            for laser in self.lasers
+            if not laser.collision_box.colliderect(self.hero.collision_box)
+        ]
+
         self.laser_countdown_in_secs -= time_delta_in_secs
 
     def _update_game_map(self) -> None:
