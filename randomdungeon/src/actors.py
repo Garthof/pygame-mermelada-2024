@@ -35,7 +35,7 @@ class TileCursor:
 
 class Character:
     def __init__(self, tile_idx: str) -> None:
-        self.game: Game | None = None
+        self.game: GameStatus | None = None
         self.surface = load_tile(tile_idx)
         self.position = pygame.Vector2()
         self.current_tile_idx = pygame.Vector2()

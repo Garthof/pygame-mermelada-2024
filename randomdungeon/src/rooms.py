@@ -14,7 +14,7 @@ class TileType(enum.Enum):
 
 
 class Room:
-    def __init__(self, game: Game) -> None:
+    def __init__(self, game: GameStatus) -> None:
         self.game = game
         self.tile_surfs: dict[str, pygame.Surface] = {}
         self.__load_tiles()
@@ -32,15 +32,6 @@ class Room:
         self.hero.collision_box.center = self.hero.position  # type: ignore
 
         self.hero_attack_countdown_in_secs = 0.0
-
-        self.enemy = Enemy(ENEMY_CRAB_TILE_FILE_IDX)
-        self.enemy.game = self.game
-        self.enemy.current_tile_idx = pygame.Vector2(12, 3)
-        self.enemy.next_tile_idx = self.enemy.current_tile_idx
-        self.enemy.position = tile_center(self.enemy.current_tile_idx)
-        self.enemy.collision_box.center = self.enemy.position  # type: ignore
-
-        self.enemies = [self.enemy]
 
         self.fireball: Fireball | None = None
 
@@ -186,15 +177,103 @@ class Room:
         self.game.background_music.play(-1, 0, 5000)
         self.game.background_music.set_volume(0.5)
 
-        self.enemy_walk_event = pygame.USEREVENT
-        pygame.time.set_timer(self.enemy_walk_event, 2500)
-
     def exit(self) -> None:
         if self.game.background_music:
             self.game.background_music.stop()
             self.game.background_music = None
 
     def read_events(self, events: list[pygame.event.Event]) -> None:
+        hover_mouse_position = pygame.mouse.get_pos()
+        self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
+
+    def update(self, time_delta_in_secs: float) -> None:
+        self._update_game_map()
+
+        self.hero.update(time_delta_in_secs)
+
+        if self.fireball:
+            if (
+                not is_valid_position(self.fireball.position)
+                or self.__fireball_collision_obstacle()
+            ):
+                self.fireball = None
+
+    def _update_game_map(self) -> None:
+        self.game.map = [
+            [
+                (
+                    GameObjectType.FLOOR
+                    if tile == TileType.FLOOR
+                    else GameObjectType.OBSTACLE
+                )
+                for tile in tile_row
+            ]
+            for tile_row in self.room_map
+        ]
+
+        self.game.map[int(self.hero.current_tile_idx.y)][
+            int(self.hero.current_tile_idx.x)
+        ] = GameObjectType.HERO
+
+    def __fireball_collision_obstacle(self) -> bool:
+        if self.fireball:
+            fireball_tile = tile_idx(self.fireball.position)
+            return self.game.object_at(fireball_tile) == GameObjectType.OBSTACLE
+        return False
+
+    def animate(self, time_delta_in_secs: float) -> None:
+        self.hero.animate(time_delta_in_secs)
+        if self.fireball:
+            self.fireball.animate(time_delta_in_secs)
+        self.mouse_tile_cursor.animate()
+
+    def render(self) -> None:
+        self.__render_tile_map()
+
+        self.hero.render()
+
+        if self.fireball:
+            self.fireball.render()
+
+        self.mouse_tile_cursor.render()
+
+    def __render_tile_map(self) -> None:
+        screen = pygame.display.get_surface()
+
+        for j, tile_row in enumerate(self.tile_map):
+            for i, tile_surf in enumerate(tile_row):
+                if tile_surf:
+                    tile_rect = tile_surf.get_rect(topleft=tile_top_left((i, j)))
+                    screen.blit(tile_surf, tile_rect)
+
+                if DEBUG_RENDER_TILE_BORDERS:
+                    pygame.draw.rect(screen, "black", tile_rect, 1)
+
+
+class RoomWithEnemies(Room):
+    def __init__(self, game: GameStatus) -> None:
+        super().__init__(game)
+
+        enemy = Enemy(ENEMY_CRAB_TILE_FILE_IDX)
+        enemy.game = self.game
+        enemy.current_tile_idx = pygame.Vector2(12, 3)
+        enemy.next_tile_idx = enemy.current_tile_idx
+        enemy.position = tile_center(enemy.current_tile_idx)
+        enemy.collision_box.center = enemy.position  # type: ignore
+
+        self.enemies = [enemy]
+        self.enemy_walk_event = pygame.USEREVENT
+
+    def enter(self) -> None:
+        super().enter()
+        pygame.time.set_timer(self.enemy_walk_event, 2500)
+
+    def exit(self) -> None:
+        pygame.time.set_timer(self.enemy_walk_event, 0)
+        super().exit()
+
+    def read_events(self, events: list[pygame.event.Event]) -> None:
+        super().read_events(events)
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pressed_buttons = pygame.mouse.get_pressed()
@@ -215,9 +294,6 @@ class Room:
                             random.randint(-5, 5), 0
                         )
 
-        hover_mouse_position = pygame.mouse.get_pos()
-        self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
-
     def __enemy_on_tile(self, tile_idx: pygame.Vector2) -> Enemy | None:
         for enemy in self.enemies:
             if are_same_tile(enemy.current_tile_idx, tile_idx):
@@ -231,45 +307,27 @@ class Room:
             self.hero.position + self.fireball.direction * TILE_RADIUS
         )
 
-    def update(self, time_delta_in_secs) -> None:
-        self.__update_game_map()
-
-        self.hero.update(time_delta_in_secs)
-        for enemy in self.enemies:
-            enemy.update(time_delta_in_secs)
+    def update(self, time_delta_in_secs: float) -> None:
+        super().update(time_delta_in_secs)
 
         if self.fireball:
-            if not is_valid_position(self.fireball.position):
-                self.fireball = None
-            if hit_enemy := self.__fireball_collision():
+            if hit_enemy := self.__fireball_collision__enemy():
                 hit_enemy.life_points -= 1
                 self.fireball = None
 
         self.enemies = [enemy for enemy in self.enemies if enemy.life_points > 0]
+        for enemy in self.enemies:
+            enemy.update(time_delta_in_secs)
 
-    def __update_game_map(self) -> None:
-        self.game.map = [
-            [
-                (
-                    GameObjectType.FLOOR
-                    if tile == TileType.FLOOR
-                    else GameObjectType.OBSTACLE
-                )
-                for tile in tile_row
-            ]
-            for tile_row in self.room_map
-        ]
-
-        self.game.map[int(self.hero.current_tile_idx.y)][
-            int(self.hero.current_tile_idx.x)
-        ] = GameObjectType.HERO
+    def _update_game_map(self) -> None:
+        super()._update_game_map()
 
         for enemy in self.enemies:
             self.game.map[int(enemy.current_tile_idx.y)][
                 int(enemy.current_tile_idx.x)
             ] = GameObjectType.ENEMY
 
-    def __fireball_collision(self) -> Enemy | None:
+    def __fireball_collision__enemy(self) -> Enemy | None:
         if self.fireball:
             for enemy in self.enemies:
                 if enemy.collision_box.colliderect(self.fireball.collision_box):
@@ -277,34 +335,11 @@ class Room:
         return None
 
     def animate(self, time_delta_in_secs: float) -> None:
-        self.hero.animate(time_delta_in_secs)
+        super().animate(time_delta_in_secs)
         for enemy in self.enemies:
             enemy.animate(time_delta_in_secs)
-        if self.fireball:
-            self.fireball.animate(time_delta_in_secs)
-        self.mouse_tile_cursor.animate()
 
     def render(self) -> None:
-        self.__render_tile_map()
-
+        super().render()
         for enemy in self.enemies:
             enemy.render()
-
-        self.hero.render()
-
-        if self.fireball:
-            self.fireball.render()
-
-        self.mouse_tile_cursor.render()
-
-    def __render_tile_map(self) -> None:
-        screen = pygame.display.get_surface()
-
-        for j, tile_row in enumerate(self.tile_map):
-            for i, tile_surf in enumerate(tile_row):
-                if tile_surf:
-                    tile_rect = tile_surf.get_rect(topleft=tile_top_left((i, j)))
-                    screen.blit(tile_surf, tile_rect)
-
-                if DEBUG_RENDER_TILE_BORDERS:
-                    pygame.draw.rect(screen, "black", tile_rect, 1)

@@ -25,8 +25,8 @@ class Engine:
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("Random Dungeon")
 
-        self.game = Game(window_size_in_tiles())
-        self.room = Room(self.game)
+        self.game = GameStatus(window_size_in_tiles())
+        self.room = RoomWithEnemies(self.game)
 
         self.initialized = True
         return self
