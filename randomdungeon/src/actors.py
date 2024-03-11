@@ -267,3 +267,18 @@ class Laser:
 
         if DEBUG_RENDER_COLLISION_BOX:
             pygame.draw.rect(screen, "black", self.collision_box, 3)
+
+
+class LifeIndicator:
+    def __init__(self, game: Game) -> None:
+        self.game = game
+        self.surface = load_tile(HEART_TILE_FILE_IDX)
+        self.surface = pygame.transform.scale_by(self.surface, 0.5)
+
+    def render(self) -> None:
+        screen = pygame.display.get_surface()
+        position = pygame.Vector2(TILE_RADIUS + 10, TILE_RADIUS + 10)
+        for _ in range(self.game.hero_life_points):
+            surface_rect = self.surface.get_rect(center=position)
+            screen.blit(self.surface, surface_rect)
+            position.x += self.surface.get_width()

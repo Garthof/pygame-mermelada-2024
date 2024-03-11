@@ -60,6 +60,8 @@ class DungeonRoom(Room):
         self.mouse_tile_cursor.color = "white"
         self.mouse_tile_cursor.thickness = 5
 
+        self.life_indicator = LifeIndicator(self.game)
+
     def __load_tiles(self) -> None:
         self.tile_surfs["wall_parapet_top"] = load_tile("0026")
         self.tile_surfs["wall_parapet_bottom"] = load_tile("0002")
@@ -290,6 +292,8 @@ class DungeonRoom(Room):
             self.fireball.render()
 
         self.mouse_tile_cursor.render()
+
+        self.life_indicator.render()
 
     def __render_tile_map(self) -> None:
         screen = pygame.display.get_surface()

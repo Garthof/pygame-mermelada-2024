@@ -72,6 +72,7 @@ class Engine:
 
             case GameState.START_PLAY:
                 self.game.level = 1
+                self.game.hero_life_points = 3
                 self.room = MonsterRoom(self.game, self.game.level)
                 self.room.hero.current_tile_idx = pygame.Vector2(
                     window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
