@@ -11,11 +11,16 @@ from utils import *
 class TileType(enum.Enum):
     FLOOR = enum.auto()
     WALL = enum.auto()
+    CLOSED_DOOR = enum.auto()
+    OPEN_DOOR = enum.auto()
 
 
 class Room:
     def __init__(self, game: Game) -> None:
         self.game = game
+
+        self.are_open_doors = False
+
         self.tile_surfs: dict[str, pygame.Surface] = {}
         self.__load_tiles()
 
@@ -23,15 +28,6 @@ class Room:
         self.tile_map, self.room_map = self.__generate_maps()
 
         self.hero = Hero(self.game)
-        self.hero.game = self.game
-        self.hero.current_tile_idx = pygame.Vector2(
-            window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
-        )
-        self.hero.next_tile_idx = self.hero.current_tile_idx
-        self.hero.position = tile_center(self.hero.current_tile_idx)
-        self.hero.collision_box.center = self.hero.position  # type: ignore
-
-        self.hero_attack_countdown_in_secs = 0.0
 
         self.fireball: Fireball | None = None
 
@@ -61,6 +57,11 @@ class Room:
 
         self.tile_surfs["corridor_left"] = load_tile("0010")
         self.tile_surfs["corridor_right"] = load_tile("0011")
+
+        self.tile_surfs["door_closed_left"] = load_tile("0046")
+        self.tile_surfs["door_closed_right"] = load_tile("0047")
+        self.tile_surfs["door_open_left"] = load_tile("0034")
+        self.tile_surfs["door_open_right"] = load_tile("0035")
 
     def __generate_maps(
         self,
@@ -132,26 +133,26 @@ class Room:
         tile_map[1][horizontal_exit_left_i] = self.tile_surfs["corridor_left"]
         tile_map[1][horizontal_exit_left_i + 1] = self.tile_surfs["corridor_right"]
 
-        vertical_exit_top_j = self.map_height_in_tiles // 2 - 2
-        tile_map[vertical_exit_top_j][0] = self.tile_surfs["wall_parapet_bottom_right"]
-        tile_map[vertical_exit_top_j + 1][0] = self.tile_surfs["wall_front"]
-        tile_map[vertical_exit_top_j + 2][0] = self.tile_surfs["floor"]
-        room_map[vertical_exit_top_j + 2][0] = TileType.FLOOR
-        tile_map[vertical_exit_top_j + 3][0] = self.tile_surfs["wall_parapet_top_right"]
+        # vertical_exit_top_j = self.map_height_in_tiles // 2 - 2
+        # tile_map[vertical_exit_top_j][0] = self.tile_surfs["wall_parapet_bottom_right"]
+        # tile_map[vertical_exit_top_j + 1][0] = self.tile_surfs["wall_front"]
+        # tile_map[vertical_exit_top_j + 2][0] = self.tile_surfs["floor"]
+        # room_map[vertical_exit_top_j + 2][0] = TileType.FLOOR
+        # tile_map[vertical_exit_top_j + 3][0] = self.tile_surfs["wall_parapet_top_right"]
 
-        tile_map[vertical_exit_top_j][self.map_width_in_tiles - 1] = self.tile_surfs[
-            "wall_parapet_bottom_left"
-        ]
-        tile_map[vertical_exit_top_j + 1][self.map_width_in_tiles - 1] = (
-            self.tile_surfs["wall_front"]
-        )
-        tile_map[vertical_exit_top_j + 2][self.map_width_in_tiles - 1] = (
-            self.tile_surfs["floor"]
-        )
-        room_map[vertical_exit_top_j + 2][self.map_width_in_tiles - 1] = TileType.FLOOR
-        tile_map[vertical_exit_top_j + 3][self.map_width_in_tiles - 1] = (
-            self.tile_surfs["wall_parapet_top_left"]
-        )
+        # tile_map[vertical_exit_top_j][self.map_width_in_tiles - 1] = self.tile_surfs[
+        #     "wall_parapet_bottom_left"
+        # ]
+        # tile_map[vertical_exit_top_j + 1][self.map_width_in_tiles - 1] = (
+        #     self.tile_surfs["wall_front"]
+        # )
+        # tile_map[vertical_exit_top_j + 2][self.map_width_in_tiles - 1] = (
+        #     self.tile_surfs["floor"]
+        # )
+        # room_map[vertical_exit_top_j + 2][self.map_width_in_tiles - 1] = TileType.FLOOR
+        # tile_map[vertical_exit_top_j + 3][self.map_width_in_tiles - 1] = (
+        #     self.tile_surfs["wall_parapet_top_left"]
+        # )
 
         tile_map[self.map_height_in_tiles - 1][horizontal_exit_left_i - 1] = (
             self.tile_surfs["wall_parapet_top_right"]
@@ -173,20 +174,21 @@ class Room:
         return tile_map, room_map
 
     def enter(self) -> None:
-        self.game.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
-        self.game.background_music.play(-1, 0, 5000)
-        self.game.background_music.set_volume(0.5)
+        self.hero.next_tile_idx = self.hero.current_tile_idx
+        self.hero.position = tile_center(self.hero.current_tile_idx)
+        self.hero.collision_box.center = self.hero.position  # type: ignore
+
+        self.hero_attack_countdown_in_secs = 0.0
 
     def exit(self) -> None:
-        if self.game.background_music:
-            self.game.background_music.stop()
-            self.game.background_music = None
+        pass
 
     def read_events(self, events: list[pygame.event.Event]) -> None:
         hover_mouse_position = pygame.mouse.get_pos()
         self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
 
     def update(self, time_delta_in_secs: float) -> None:
+        self.__update_doors()
         self._update_game_map()
 
         self.hero.update(time_delta_in_secs)
@@ -198,18 +200,41 @@ class Room:
             ):
                 self.fireball = None
 
+    def __update_doors(self) -> None:
+        if self.are_open_doors:
+            door_left_tile_surf = self.tile_surfs["door_open_left"]
+            door_right_tile_surf = self.tile_surfs["door_open_right"]
+            door_tile_type = TileType.OPEN_DOOR
+        else:
+            door_left_tile_surf = self.tile_surfs["door_closed_left"]
+            door_right_tile_surf = self.tile_surfs["door_closed_right"]
+            door_tile_type = TileType.CLOSED_DOOR
+
+        self.tile_map[int(self.game.door_left_tile_idx[1])][
+            int(self.game.door_left_tile_idx[0])
+        ] = door_left_tile_surf
+        self.room_map[int(self.game.door_left_tile_idx[1])][
+            int(self.game.door_left_tile_idx[0])
+        ] = door_tile_type
+
+        self.tile_map[int(self.game.door_right_tile_idx[1])][
+            int(self.game.door_right_tile_idx[0])
+        ] = door_right_tile_surf
+        self.room_map[int(self.game.door_right_tile_idx[1])][
+            int(self.game.door_right_tile_idx[0])
+        ] = door_tile_type
+
     def _update_game_map(self) -> None:
-        self.game.map = [
-            [
-                (
-                    GameObjectType.FLOOR
-                    if tile == TileType.FLOOR
-                    else GameObjectType.OBSTACLE
-                )
-                for tile in tile_row
-            ]
-            for tile_row in self.room_map
-        ]
+        for j, tile_row in enumerate(self.room_map):
+            for i, tile in enumerate(tile_row):
+                match tile:
+                    case TileType.FLOOR:
+                        object_type = GameObjectType.FLOOR
+                    case TileType.OPEN_DOOR:
+                        object_type = GameObjectType.OPEN_DOOR
+                    case _:
+                        object_type = GameObjectType.OBSTACLE
+                self.game.map[j][i] = object_type
 
         self.game.map[int(self.hero.current_tile_idx.y)][
             int(self.hero.current_tile_idx.x)
@@ -322,6 +347,7 @@ class MonsterRoom(Room):
         self.monsters = [
             monster for monster in self.monsters if monster.life_points > 0
         ]
+        self.are_open_doors = len(self.monsters) == 0
         for monster in self.monsters:
             monster.update(time_delta_in_secs)
 

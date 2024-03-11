@@ -125,7 +125,10 @@ class Character:
     def __can_move_to_next_tile(self) -> bool:
         if self.game:
             object_in_next_tile = self.game.object_at(self.next_tile_idx)
-            return object_in_next_tile == GameObjectType.FLOOR
+            return (
+                object_in_next_tile == GameObjectType.FLOOR
+                or object_in_next_tile == GameObjectType.OPEN_DOOR
+            )
 
         return True
 

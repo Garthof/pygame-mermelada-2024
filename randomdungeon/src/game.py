@@ -9,6 +9,8 @@ class GameObjectType(enum.StrEnum):
     OBSTACLE = "X"
     HERO = "H"
     MONSTER = "M"
+    CLOSED_DOOR = "C"
+    OPEN_DOOR = "O"
 
 
 class Game:
@@ -18,7 +20,9 @@ class Game:
             [GameObjectType.FLOOR] * self.map_width_in_tiles
             for _ in range(self.map_height_in_tiles)
         ]
-
+        self.level = 1
+        self.door_left_tile_idx = pygame.Vector2(7.0, 1.0)
+        self.door_right_tile_idx = pygame.Vector2(8.0, 1.0)
         self.background_music: pygame.mixer.Sound | None = None
 
     def object_at(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> GameObjectType:

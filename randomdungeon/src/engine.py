@@ -26,7 +26,13 @@ class Engine:
         pygame.display.set_caption("Random Dungeon")
 
         self.game = Game(window_size_in_tiles())
-        self.room = MonsterRoom(self.game, 3)
+
+        self.room = MonsterRoom(self.game, self.game.level)
+        self.room.hero.current_tile_idx = pygame.Vector2(
+            window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
+        )
+
+        self.hero_attack_countdown_in_secs = 0.0
 
         self.initialized = True
         return self
@@ -38,6 +44,10 @@ class Engine:
     def run(self) -> None:
         if not self.initialized:
             raise RuntimeError("Engine not initialized")
+
+        self.game.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
+        self.game.background_music.play(-1, 0, 5000)
+        self.game.background_music.set_volume(0.5)
 
         self.room.enter()
 
@@ -62,6 +72,21 @@ class Engine:
 
     def __update(self) -> None:
         self.room.update(self.time_delta_in_secs)
+
+        if not self.room.monsters and (
+            self.room.hero.current_tile_idx == self.game.door_left_tile_idx
+            or self.room.hero.current_tile_idx == self.game.door_right_tile_idx
+        ):
+            self.__move_to_next_room()
+
+    def __move_to_next_room(self) -> None:
+        self.room.exit()
+
+        self.game.level += 1
+        self.room = MonsterRoom(self.game, self.game.level)
+        self.room.hero.current_tile_idx = pygame.Vector2(8.0, 11.0)
+
+        self.room.enter()
 
     def __animate(self) -> None:
         self.room.animate(self.time_delta_in_secs)
