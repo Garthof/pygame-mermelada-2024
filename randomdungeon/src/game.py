@@ -4,6 +4,14 @@ import pygame
 from utils import *
 
 
+class GameState(enum.Enum):
+    START_DISPLAY_MENU = enum.auto()
+    DISPLAY_MENU = enum.auto()
+    START_PLAY = enum.auto()
+    PLAY = enum.auto()
+    DISPLAY_GAME_OVER = enum.auto()
+
+
 class GameObjectType(enum.StrEnum):
     FLOOR = "   "
     OBSTACLE = "X"
@@ -15,15 +23,23 @@ class GameObjectType(enum.StrEnum):
 
 class Game:
     def __init__(self, map_size_in_tiles: tuple[int, int]) -> None:
+        self.state = GameState.START_DISPLAY_MENU
+
+        self.title_font = pygame.font.Font(None, 80)
+        self.menu_font = pygame.font.Font(None, 40)
+
         self.map_width_in_tiles, self.map_height_in_tiles = map_size_in_tiles
         self.map = [
             [GameObjectType.FLOOR] * self.map_width_in_tiles
             for _ in range(self.map_height_in_tiles)
         ]
+
         self.level = 1
+
         self.door_left_tile_idx = pygame.Vector2(7.0, 1.0)
         self.door_right_tile_idx = pygame.Vector2(8.0, 1.0)
-        self.background_music: pygame.mixer.Sound | None = None
+
+        self.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
 
     def object_at(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> GameObjectType:
         return self.map[int(tile_idx[1])][int(tile_idx[0])]

@@ -2,6 +2,8 @@ import enum
 import pygame
 import random
 
+from pygame.event import Event
+
 from actors import *
 from game import *
 from globals import *
@@ -18,6 +20,29 @@ class TileType(enum.Enum):
 class Room:
     def __init__(self, game: Game) -> None:
         self.game = game
+
+    def enter(self) -> None:
+        pass
+
+    def exit(self) -> None:
+        pass
+
+    def read_events(self, events: list[pygame.event.Event]) -> None:
+        pass
+
+    def update(self, time_delta_in_secs: float) -> None:
+        pass
+
+    def animate(self, time_delta_in_secs: float) -> None:
+        pass
+
+    def render(self) -> None:
+        pass
+
+
+class DungeonRoom(Room):
+    def __init__(self, game: Game) -> None:
+        super().__init__(game)
 
         self.are_open_doors = False
 
@@ -180,14 +205,14 @@ class Room:
 
         self.hero_attack_countdown_in_secs = 0.0
 
-    def exit(self) -> None:
-        pass
-
     def read_events(self, events: list[pygame.event.Event]) -> None:
+        super().read_events(events)
         hover_mouse_position = pygame.mouse.get_pos()
         self.mouse_tile_cursor.position = pygame.Vector2(hover_mouse_position)
 
     def update(self, time_delta_in_secs: float) -> None:
+        super().update(time_delta_in_secs)
+
         self.__update_doors()
         self._update_game_map()
 
@@ -247,12 +272,16 @@ class Room:
         return False
 
     def animate(self, time_delta_in_secs: float) -> None:
+        super().animate(time_delta_in_secs)
+
         self.hero.animate(time_delta_in_secs)
         if self.fireball:
             self.fireball.animate(time_delta_in_secs)
         self.mouse_tile_cursor.animate()
 
     def render(self) -> None:
+        super().render()
+
         self.__render_tile_map()
 
         self.hero.render()
@@ -275,7 +304,7 @@ class Room:
                     pygame.draw.rect(screen, "black", tile_rect, 1)
 
 
-class MonsterRoom(Room):
+class MonsterRoom(DungeonRoom):
     def __init__(self, game: Game, num_monsters: int) -> None:
         super().__init__(game)
 
@@ -375,3 +404,29 @@ class MonsterRoom(Room):
         super().render()
         for monster in self.monsters:
             monster.render()
+
+
+class MenuRoom(Room):
+    def __init__(self, game: Game) -> None:
+        super().__init__(game)
+
+    def read_events(self, events: list[Event]) -> None:
+        super().read_events(events)
+
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                self.game.state = GameState.START_PLAY
+
+    def render(self) -> None:
+        screen = pygame.display.get_surface()
+        screen.fill(MENU_COLOR)
+        self.__render_centered_text("Random Dungeon", 200, self.game.title_font)
+        self.__render_centered_text(
+            "Click to start", WINDOW_HEIGHT - 60, self.game.menu_font
+        )
+
+    def __render_centered_text(self, text: str, y_pos: int, font: pygame.font.Font):
+        text_surf = render_text(text, font, "azure1", MENU_COLOR)
+        text_rect = text_surf.get_rect(center=pygame.Vector2(WINDOW_WIDTH // 2, y_pos))
+        screen = pygame.display.get_surface()
+        screen.blit(text_surf, text_rect)

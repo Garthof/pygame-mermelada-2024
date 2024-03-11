@@ -26,13 +26,7 @@ class Engine:
         pygame.display.set_caption("Random Dungeon")
 
         self.game = Game(window_size_in_tiles())
-
-        self.room = MonsterRoom(self.game, self.game.level)
-        self.room.hero.current_tile_idx = pygame.Vector2(
-            window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
-        )
-
-        self.hero_attack_countdown_in_secs = 0.0
+        self.room: Room | None = None
 
         self.initialized = True
         return self
@@ -44,12 +38,6 @@ class Engine:
     def run(self) -> None:
         if not self.initialized:
             raise RuntimeError("Engine not initialized")
-
-        self.game.background_music = pygame.mixer.Sound(MUSIC_PATH / "dungeon-maze.mp3")
-        self.game.background_music.play(-1, 0, 5000)
-        self.game.background_music.set_volume(0.5)
-
-        self.room.enter()
 
         self.previous_time_in_secs = time.time()
         self.running = True
@@ -68,32 +56,67 @@ class Engine:
             if event.type == pygame.QUIT:  # closing window
                 self.running = False
 
-        self.room.read_events(events)
+        if self.room:
+            self.room.read_events(events)
 
     def __update(self) -> None:
-        self.room.update(self.time_delta_in_secs)
+        match self.game.state:
+            case GameState.START_DISPLAY_MENU:
+                self.room = MenuRoom(self.game)
+                self.room.enter()
+                self.game.state = GameState.DISPLAY_MENU
 
-        if not self.room.monsters and (
-            self.room.hero.current_tile_idx == self.game.door_left_tile_idx
-            or self.room.hero.current_tile_idx == self.game.door_right_tile_idx
-        ):
-            self.__move_to_next_room()
+            case GameState.DISPLAY_MENU:
+                if self.room:
+                    self.room.update(self.time_delta_in_secs)
+
+            case GameState.START_PLAY:
+                self.game.level = 1
+                self.room = MonsterRoom(self.game, self.game.level)
+                self.room.hero.current_tile_idx = pygame.Vector2(
+                    window_size_in_tiles()[0] // 2, window_size_in_tiles()[1] // 2
+                )
+                self.room.enter()
+                self.game.state = GameState.PLAY
+
+            case GameState.PLAY:
+                if isinstance(self.room, MonsterRoom):
+                    self.game.background_music.play(-1, 0, 5000)
+                    self.game.background_music.set_volume(0.5)
+                    self.room.update(self.time_delta_in_secs)
+
+                    if not self.room.monsters and (
+                        self.room.hero.current_tile_idx == self.game.door_left_tile_idx
+                        or self.room.hero.current_tile_idx
+                        == self.game.door_right_tile_idx
+                    ):
+                        self.__move_to_next_room()
+
+            case GameState.DISPLAY_GAME_OVER:
+                self.room = MenuRoom(self.game)
+                self.room.enter()
+                self.game.state = GameState.DISPLAY_MENU
+
+            case _:
+                raise ValueError(f"Invalid game state: {self.game.state}")
 
     def __move_to_next_room(self) -> None:
-        self.room.exit()
+        if self.room:
+            self.room.exit()
 
-        self.game.level += 1
-        self.room = MonsterRoom(self.game, self.game.level)
-        self.room.hero.current_tile_idx = pygame.Vector2(8.0, 11.0)
+            self.game.level += 1
+            self.room = MonsterRoom(self.game, self.game.level)
+            self.room.hero.current_tile_idx = pygame.Vector2(8.0, 11.0)
 
-        self.room.enter()
+            self.room.enter()
 
     def __animate(self) -> None:
-        self.room.animate(self.time_delta_in_secs)
+        if self.room:
+            self.room.animate(self.time_delta_in_secs)
 
     def __render(self) -> None:
-        self.screen.fill(BACKGROUND_COLOR)
-        self.room.render()
+        if self.room:
+            self.room.render()
 
         if DEBUG_RENDER_GAME_MAP:
             self.game.render_map()
@@ -106,10 +129,12 @@ class Engine:
     def __render_stats(self) -> None:
         x_pos, y_pos = 10, 10
         debug(f"FPS: {round(self.clock.get_fps(), 1)}", (x_pos, y_pos))
-        debug(
-            f"Mouse: {self.room.mouse_tile_cursor.tile_idx}",
-            (x_pos, y_pos := y_pos + 20),
-        )
+
+        if self.game.state == GameState.PLAY and isinstance(self.room, DungeonRoom):
+            debug(
+                f"Mouse: {self.room.mouse_tile_cursor.tile_idx}",
+                (x_pos, y_pos := y_pos + 20),
+            )
 
     def __update_time(self) -> None:
         self.current_time_in_secs = time.time()
