@@ -1,8 +1,6 @@
 import enum
 import pygame
 
-from actors import *
-from rooms import *
 from utils import *
 
 
@@ -21,18 +19,7 @@ class Game:
             for _ in range(self.map_height_in_tiles)
         ]
 
-    def update_map_from_room(self, room: Room) -> None:
-        self.map = [
-            [
-                (
-                    GameObjectType.FLOOR
-                    if tile == TileType.FLOOR
-                    else GameObjectType.OBSTACLE
-                )
-                for tile in tile_row
-            ]
-            for tile_row in room.room_map
-        ]
+        self.background_music: pygame.mixer.Sound | None = None
 
     def object_at(self, tile_idx: pygame.Vector2 | tuple[int, int]) -> GameObjectType:
         return self.map[int(tile_idx[1])][int(tile_idx[0])]
